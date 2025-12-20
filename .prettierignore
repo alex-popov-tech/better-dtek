@@ -1,0 +1,16 @@
+# Ignore artifacts:
+build
+coverage
+.svelte-kit
+node_modules
+fixtures
+
+# Ignore template files (contain broken HTML from external source)
+template.html
+*.responseHeaders
+*.requestHeaders
+
+# Ignore legacy files
+cookies_and_tokens_parsing.js
+fetch.js
+parse_data.js

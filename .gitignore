@@ -1,0 +1,49 @@
+# Dependencies
+node_modules
+
+# Build outputs
+.output
+/build
+dist
+
+# SvelteKit
+/.svelte-kit
+
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Deployment
+.vercel
+.netlify
+.wrangler
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.test
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE/Editor
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# Claude Code
+.claude/
+
+# Logs and temp files
+*.log
+logs/
