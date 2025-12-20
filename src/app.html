@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="uk">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Відключення світла - ДТЕК</title>
+		<script>
+			(function () {
+				var theme = localStorage.getItem('dtek-theme');
+				var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+				var isDark = theme === 'dark' || (!theme && prefersDark);
+				if (isDark) document.documentElement.classList.add('dark');
+			})();
+		</script>
+		%sveltekit.head%
+	</head>
+	<body data-sveltekit-preload-data="hover" data-theme="skeleton">
+		<div style="display: contents">%sveltekit.body%</div>
+	</body>
+</html>
