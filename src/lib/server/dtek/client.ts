@@ -9,11 +9,21 @@
 
 import type { DtekStatusResponse, Result, NetworkError, ParseError } from '$lib/types';
 import { ok, err, networkError, parseError } from '$lib/types';
+import { dtekStatusResponseSchema } from '$lib/schemas';
+import { getRegionConfig, type RegionCode } from '$lib/constants/regions';
 
-// Constants
-export const BASE_URL = 'https://www.dtek-oem.com.ua';
-export const TEMPLATE_URL = `${BASE_URL}/ua/shutdowns`;
-export const AJAX_URL = `${BASE_URL}/ua/ajax`;
+// URL generators
+export function getBaseUrl(region: RegionCode): string {
+	return getRegionConfig(region).url;
+}
+
+export function getTemplateUrl(region: RegionCode): string {
+	return `${getBaseUrl(region)}/ua/shutdowns`;
+}
+
+export function getAjaxUrl(region: RegionCode): string {
+	return `${getBaseUrl(region)}/ua/ajax`;
+}
 
 export const USER_AGENT =
 	'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36';
@@ -56,10 +66,13 @@ export class CookieJar {
 
 	/**
 	 * Get only essential cookies needed for DTEK requests
-	 * Filters to: dtek-oem, _csrf-dtek-oem, _language, visid_incap_*, incap_ses_*, incap_wrt_*
+	 * Filters to: dtek-{region}, _csrf-dtek-{region}, _language, visid_incap_*, incap_ses_*, incap_wrt_*
+	 * @param region - Region code for cookie name matching
 	 */
-	getFiltered(): string {
-		const keepPattern = /^(dtek-oem|_csrf-dtek-oem|_language|visid_incap_|incap_ses_|incap_wrt_)/;
+	getFiltered(region: RegionCode): string {
+		const keepPattern = new RegExp(
+			`^(dtek-${region}|_csrf-dtek-${region}|_language|visid_incap_|incap_ses_|incap_wrt_)`
+		);
 		return Array.from(this.cookies.entries())
 			.filter(([name]) => keepPattern.test(name))
 			.map(([k, v]) => `${k}=${v}`)
@@ -86,8 +99,12 @@ export class CookieJar {
  * Node 20+ has headers.getSetCookie(), fallback for older versions
  */
 function getSetCookieHeaders(headers: Headers): string[] {
-	if (typeof (headers as any).getSetCookie === 'function') {
-		return (headers as any).getSetCookie();
+	// Node 20+ has getSetCookie() method on Headers
+	const headersWithGetSetCookie = headers as Headers & {
+		getSetCookie?: () => string[];
+	};
+	if (typeof headersWithGetSetCookie.getSetCookie === 'function') {
+		return headersWithGetSetCookie.getSetCookie();
 	}
 	const sc = headers.get('set-cookie');
 	return sc ? [sc] : [];
@@ -103,13 +120,17 @@ export interface FetchTemplateSuccess {
 
 /**
  * Fetch DTEK template page and extract cookies
+ * @param region - Region code to determine which DTEK subdomain to use
  * @returns Result with HTML content and cookie jar, or NetworkError
  */
-export async function fetchTemplate(): Promise<Result<FetchTemplateSuccess, NetworkError>> {
+export async function fetchTemplate(
+	region: RegionCode
+): Promise<Result<FetchTemplateSuccess, NetworkError>> {
 	const cookies = new CookieJar();
+	const templateUrl = getTemplateUrl(region);
 
 	try {
-		const response = await fetch(TEMPLATE_URL, {
+		const response = await fetch(templateUrl, {
 			method: 'GET',
 			headers: {
 				'user-agent': USER_AGENT,
@@ -127,7 +148,7 @@ export async function fetchTemplate(): Promise<Result<FetchTemplateSuccess, Netw
 
 		if (!response.ok) {
 			return err(
-				networkError(TEMPLATE_URL, `DTEK server returned HTTP ${response.status}`, {
+				networkError(templateUrl, `DTEK server returned HTTP ${response.status}`, {
 					httpStatus: response.status,
 				})
 			);
@@ -138,7 +159,7 @@ export async function fetchTemplate(): Promise<Result<FetchTemplateSuccess, Netw
 		return ok({ html, cookies });
 	} catch (cause) {
 		return err(
-			networkError(TEMPLATE_URL, 'Failed to connect to DTEK server', {
+			networkError(templateUrl, 'Failed to connect to DTEK server', {
 				cause,
 			})
 		);
@@ -149,6 +170,8 @@ export async function fetchTemplate(): Promise<Result<FetchTemplateSuccess, Netw
  * Parameters for fetchBuildingStatuses
  */
 export interface FetchBuildingStatusesParams {
+	/** Region code (e.g., "oem", "kem") */
+	region: RegionCode;
 	/** City name (Ukrainian, e.g., "м. Одеса") */
 	city: string;
 	/** Street name (Ukrainian, e.g., "вул. Педагогічна") */
@@ -169,7 +192,12 @@ export interface FetchBuildingStatusesParams {
 export async function fetchBuildingStatuses(
 	params: FetchBuildingStatusesParams
 ): Promise<Result<DtekStatusResponse, NetworkError | ParseError>> {
-	const { city, street, updateFact, csrf, cookies } = params;
+	const { region, city, street, updateFact, csrf, cookies } = params;
+
+	// Generate URLs for this region
+	const ajaxUrl = getAjaxUrl(region);
+	const baseUrl = getBaseUrl(region);
+	const templateUrl = getTemplateUrl(region);
 
 	// Build form body
 	const body = new URLSearchParams();
@@ -181,11 +209,11 @@ export async function fetchBuildingStatuses(
 	body.set('data[2][name]', 'updateFact');
 	body.set('data[2][value]', updateFact);
 
-	// Get filtered cookies
-	const cookieHeader = cookies.getFiltered();
+	// Get filtered cookies for this region
+	const cookieHeader = cookies.getFiltered(region);
 
 	try {
-		const response = await fetch(AJAX_URL, {
+		const response = await fetch(ajaxUrl, {
 			method: 'POST',
 			headers: {
 				'user-agent': USER_AGENT,
@@ -194,8 +222,8 @@ export async function fetchBuildingStatuses(
 				'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
 				'x-requested-with': 'XMLHttpRequest',
 				'x-csrf-token': csrf,
-				origin: BASE_URL,
-				referer: TEMPLATE_URL,
+				origin: baseUrl,
+				referer: templateUrl,
 				cookie: cookieHeader,
 				'cache-control': 'no-cache',
 				pragma: 'no-cache',
@@ -210,7 +238,7 @@ export async function fetchBuildingStatuses(
 
 		if (!response.ok) {
 			return err(
-				networkError(AJAX_URL, `DTEK API returned HTTP ${response.status}`, {
+				networkError(ajaxUrl, `DTEK API returned HTTP ${response.status}`, {
 					httpStatus: response.status,
 				})
 			);
@@ -218,9 +246,10 @@ export async function fetchBuildingStatuses(
 
 		const text = await response.text();
 
+		// Parse JSON
+		let rawJson: unknown;
 		try {
-			const json = JSON.parse(text) as DtekStatusResponse;
-			return ok(json);
+			rawJson = JSON.parse(text);
 		} catch (cause) {
 			return err(
 				parseError('json', 'Failed to parse DTEK API response as JSON', {
@@ -230,9 +259,24 @@ export async function fetchBuildingStatuses(
 				})
 			);
 		}
+
+		// Validate response structure with Zod
+		const validationResult = dtekStatusResponseSchema.safeParse(rawJson);
+		if (!validationResult.success) {
+			const errorDetails = validationResult.error.flatten();
+			console.error('[DTEK Client] Response validation failed:', errorDetails);
+			return err(
+				parseError('json', 'DTEK API returned invalid data structure', {
+					expected: 'Valid DtekStatusResponse structure',
+					found: JSON.stringify(errorDetails.fieldErrors),
+				})
+			);
+		}
+
+		return ok(validationResult.data as DtekStatusResponse);
 	} catch (cause) {
 		return err(
-			networkError(AJAX_URL, 'Failed to fetch building statuses from DTEK', {
+			networkError(ajaxUrl, 'Failed to fetch building statuses from DTEK', {
 				cause,
 			})
 		);

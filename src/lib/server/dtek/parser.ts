@@ -10,33 +10,93 @@ import type {
 	DtekTemplateData,
 	Result,
 	ParseError,
+	RegionUnavailableError,
 	DtekRawPreset,
 	ScheduleStatus,
 	ScheduleRange,
 	ProcessedSchedules,
 } from '$lib/types';
-import { ok, err, parseError } from '$lib/types';
-import type { Node, Expression, Property, ObjectExpression } from 'acorn';
+import { ok, err, parseError, regionUnavailableError } from '$lib/types';
+import { dtekTemplateDataSchema } from '$lib/schemas';
+import type { Node, Property, ObjectExpression } from 'acorn';
+
+// AST node type extensions for acorn
+interface Identifier extends Node {
+	type: 'Identifier';
+	name: string;
+}
+
+interface Literal extends Node {
+	type: 'Literal';
+	value: string | number | boolean | null;
+}
+
+interface ArrayExpression extends Node {
+	type: 'ArrayExpression';
+	elements: Node[];
+}
+
+interface UnaryExpression extends Node {
+	type: 'UnaryExpression';
+	operator: string;
+	argument: Node;
+}
+
+interface Program extends Node {
+	type: 'Program';
+	body: Node[];
+}
+
+interface ExpressionStatement extends Node {
+	type: 'ExpressionStatement';
+	expression: Node;
+}
+
+interface AssignmentExpression extends Node {
+	type: 'AssignmentExpression';
+	left: Node;
+	right: Node;
+}
 
 // Type guard for MemberExpression
 interface MemberExpression extends Node {
 	type: 'MemberExpression';
-	object: any;
-	property: any;
+	object: Node;
+	property: Node;
 	computed: boolean;
+}
+
+/**
+ * Check if HTML contains Incapsula bot protection markers
+ * @param html - HTML string to check
+ * @returns true if bot protection is detected
+ */
+function isBotProtectionPage(html: string): boolean {
+	// Incapsula bot protection indicators
+	return html.includes('_Incapsula_Resource') || html.includes('SWJIYLWA');
 }
 
 /**
  * Extract CSRF token from <meta name="csrf-token" content="...">
  * @param html - HTML string from DTEK template page
- * @returns Result with CSRF token or ParseError
+ * @returns Result with CSRF token or ParseError/RegionUnavailableError
  */
-export function extractCsrfMeta(html: string): Result<string, ParseError> {
+export function extractCsrfMeta(html: string): Result<string, ParseError | RegionUnavailableError> {
 	try {
 		const $ = cheerio.load(html);
 		const csrf = $('meta[name="csrf-token"]').attr('content');
 
 		if (!csrf) {
+			// Check if this is a bot protection page (Incapsula)
+			if (isBotProtectionPage(html)) {
+				return err(
+					regionUnavailableError(
+						'Region blocked by bot protection',
+						undefined // Region is not known at parser level
+					)
+				);
+			}
+
 			return err(
 				parseError('csrf', 'CSRF token meta tag not found in HTML', {
 					expected: '<meta name="csrf-token" content="...">',
@@ -67,15 +127,15 @@ function isMember(node: Node | null | undefined, objName: string, propName: stri
 
 	const memberNode = node as MemberExpression;
 	const objOk =
-		memberNode.object?.type === 'Identifier' && (memberNode.object as any).name === objName;
+		memberNode.object?.type === 'Identifier' && (memberNode.object as Identifier).name === objName;
 
 	if (!objOk) return false;
 
 	if (!memberNode.computed && memberNode.property?.type === 'Identifier') {
-		return (memberNode.property as any).name === propName;
+		return (memberNode.property as Identifier).name === propName;
 	}
 	if (memberNode.computed && memberNode.property?.type === 'Literal') {
-		return String((memberNode.property as any).value) === propName;
+		return String((memberNode.property as Literal).value) === propName;
 	}
 	return false;
 }
@@ -88,8 +148,8 @@ function isMember(node: Node | null | undefined, objName: string, propName: stri
 function propKeyToString(prop: Node | null | undefined): string | null {
 	if (!prop || prop.type !== 'Property') return null;
 	const p = prop as Property;
-	if (!p.computed && p.key?.type === 'Identifier') return (p.key as any).name;
-	if (p.key?.type === 'Literal') return String((p.key as any).value);
+	if (!p.computed && p.key?.type === 'Identifier') return (p.key as Identifier).name;
+	if (p.key?.type === 'Literal') return String((p.key as Literal).value);
 	return null;
 }
 
@@ -99,6 +159,11 @@ function propKeyToString(prop: Node | null | undefined): string | null {
 const MAX_AST_DEPTH = 50;
 
 /**
+ * Result type for AST evaluation - represents all possible JS literal values
+ */
+type AstValue = string | number | boolean | null | AstValue[] | { [key: string]: AstValue };
+
+/**
  * Evaluate AST node containing only literal values (safe evaluation)
  * Supports: Literal, ArrayExpression, ObjectExpression, UnaryExpression
  * @param node - AST node to evaluate
@@ -106,7 +171,7 @@ const MAX_AST_DEPTH = 50;
  * @returns Evaluated value
  * @throws Error if node type is unsupported or max depth exceeded
  */
-function evalAst(node: Node | null | undefined, depth: number = 0): any {
+function evalAst(node: Node | null | undefined, depth: number = 0): AstValue {
 	if (depth > MAX_AST_DEPTH) {
 		throw new Error(`AST evaluation exceeded maximum depth of ${MAX_AST_DEPTH}`);
 	}
@@ -114,11 +179,11 @@ function evalAst(node: Node | null | undefined, depth: number = 0): any {
 	// only safe literal-ish nodes
 	switch (node?.type) {
 		case 'Literal':
-			return (node as any).value;
+			return (node as Literal).value;
 		case 'ArrayExpression':
-			return (node as any).elements.map((el: Node) => evalAst(el, depth + 1));
+			return (node as ArrayExpression).elements.map((el: Node) => evalAst(el, depth + 1));
 		case 'ObjectExpression': {
-			const out: Record<string, any> = Object.create(null);
+			const out: Record<string, AstValue> = Object.create(null);
 			for (const p of (node as ObjectExpression).properties) {
 				if (p.type !== 'Property') continue;
 				const k = propKeyToString(p);
@@ -127,11 +192,13 @@ function evalAst(node: Node | null | undefined, depth: number = 0): any {
 			}
 			return out;
 		}
-		case 'UnaryExpression':
-			if ((node as any).operator === '-' && (node as any).argument?.type === 'Literal') {
-				return -Number((node as any).argument.value);
+		case 'UnaryExpression': {
+			const unary = node as UnaryExpression;
+			if (unary.operator === '-' && unary.argument?.type === 'Literal') {
+				return -Number((unary.argument as Literal).value);
 			}
-			throw new Error(`Unsupported UnaryExpression: ${(node as any).operator}`);
+			throw new Error(`Unsupported UnaryExpression: ${unary.operator}`);
+		}
 		default:
 			throw new Error(`Unsupported AST node type: ${node?.type}`);
 	}
@@ -158,33 +225,35 @@ function findAssignmentsInScript(code: string): {
 	let factObj: ObjectExpression | null = null;
 	let presetObj: ObjectExpression | null = null;
 
-	for (const stmt of (ast as any).body) {
+	for (const stmt of (ast as Program).body) {
 		if (stmt.type !== 'ExpressionStatement') continue;
-		const expr = stmt.expression;
+		const exprStmt = stmt as ExpressionStatement;
+		const expr = exprStmt.expression;
 		if (!expr || expr.type !== 'AssignmentExpression') continue;
 
+		const assignment = expr as AssignmentExpression;
 		if (
 			!streetsObj &&
-			isMember(expr.left, 'DisconSchedule', 'streets') &&
-			expr.right?.type === 'ObjectExpression'
+			isMember(assignment.left, 'DisconSchedule', 'streets') &&
+			assignment.right?.type === 'ObjectExpression'
 		) {
-			streetsObj = expr.right as ObjectExpression;
+			streetsObj = assignment.right as ObjectExpression;
 		}
 
 		if (
 			!factObj &&
-			isMember(expr.left, 'DisconSchedule', 'fact') &&
-			expr.right?.type === 'ObjectExpression'
+			isMember(assignment.left, 'DisconSchedule', 'fact') &&
+			assignment.right?.type === 'ObjectExpression'
 		) {
-			factObj = expr.right as ObjectExpression;
+			factObj = assignment.right as ObjectExpression;
 		}
 
 		if (
 			!presetObj &&
-			isMember(expr.left, 'DisconSchedule', 'preset') &&
-			expr.right?.type === 'ObjectExpression'
+			isMember(assignment.left, 'DisconSchedule', 'preset') &&
+			assignment.right?.type === 'ObjectExpression'
 		) {
-			presetObj = expr.right as ObjectExpression;
+			presetObj = assignment.right as ObjectExpression;
 		}
 
 		if (streetsObj && factObj && presetObj) break;
@@ -203,7 +272,10 @@ function extractUpdateFromFactObject(factObjExpr: ObjectExpression | null): stri
 	for (const p of factObjExpr.properties) {
 		if (p.type !== 'Property') continue;
 		const k = propKeyToString(p);
-		if (k === 'update') return evalAst((p as Property).value as Node);
+		if (k === 'update') {
+			const value = evalAst((p as Property).value as Node);
+			return typeof value === 'string' ? value : null;
+		}
 	}
 	return null;
 }
@@ -318,7 +390,7 @@ export function extractPresetData(html: string): DtekRawPreset | null {
 			if (!code.includes('DisconSchedule.preset')) continue;
 			const { presetObj } = findAssignmentsInScript(code);
 			if (presetObj) {
-				const raw = evalAst(presetObj) as DtekRawPreset;
+				const raw = evalAst(presetObj) as unknown as DtekRawPreset;
 				if (raw.data && typeof raw.data === 'object') {
 					return raw;
 				}
@@ -391,7 +463,7 @@ export function extractDisconScheduleData(
 			);
 		}
 
-		const streetsByCity = evalAst(streetsObj);
+		const streetsByCity = evalAst(streetsObj) as unknown as Record<string, string[]>;
 
 		return ok({
 			streetsByCity,
@@ -410,9 +482,11 @@ export function extractDisconScheduleData(
 /**
  * Parse DTEK template HTML and extract all required data
  * @param html - HTML string from DTEK template page
- * @returns Result with DtekTemplateData or ParseError
+ * @returns Result with DtekTemplateData or ParseError/RegionUnavailableError
  */
-export function parseTemplate(html: string): Result<DtekTemplateData, ParseError> {
+export function parseTemplate(
+	html: string
+): Result<DtekTemplateData, ParseError | RegionUnavailableError> {
 	const csrfResult = extractCsrfMeta(html);
 	if (!csrfResult.ok) {
 		return csrfResult;
@@ -428,11 +502,27 @@ export function parseTemplate(html: string): Result<DtekTemplateData, ParseError
 	// Extract preset data (non-fatal)
 	const rawPreset = extractPresetData(html);
 
-	return ok({
+	// Build template data object
+	const templateData = {
 		csrf: csrfResult.value,
 		updateFact: scheduleResult.value.updateFact,
 		cities,
 		streetsByCity: scheduleResult.value.streetsByCity,
 		schedules: rawPreset ? processPresetSchedules(rawPreset) : undefined,
-	});
+	};
+
+	// Validate the complete template data structure
+	const validationResult = dtekTemplateDataSchema.safeParse(templateData);
+	if (!validationResult.success) {
+		const errorDetails = validationResult.error.flatten();
+		console.error('[Parser] Template data validation failed:', errorDetails);
+		return err(
+			parseError('template', 'Parsed template data failed validation', {
+				expected: 'Valid DtekTemplateData structure',
+				found: JSON.stringify(errorDetails.fieldErrors),
+			})
+		);
+	}
+
+	return ok(validationResult.data as DtekTemplateData);
 }
