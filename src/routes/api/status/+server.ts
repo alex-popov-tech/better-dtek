@@ -1,9 +1,13 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { dtekService } from '$lib/server';
-import { handleServiceError } from '$lib/server/route-utils';
+import { getDtekService } from '$lib/server';
+import { handleServiceError, unwrapRetryError } from '$lib/server/route-utils';
+import { validateQuery } from '$lib/server/validate';
+import { statusQuerySchema } from '$lib/schemas';
 import type { BuildingStatus } from '$lib/types/address';
 import type { DtekBuildingStatus } from '$lib/types/dtek';
+import type { RegionCode } from '$lib/constants/regions';
+import { withRetry, DEFAULT_RETRY_DELAYS } from '$lib/utils/retry';
 
 /**
  * Extract schedule group ID from sub_type_reason array
@@ -34,26 +38,31 @@ function transformBuildingStatus(raw: DtekBuildingStatus): BuildingStatus {
 }
 
 export const GET: RequestHandler = async ({ url }) => {
-	const city = url.searchParams.get('city');
-	const street = url.searchParams.get('street');
+	const validation = validateQuery(url, statusQuerySchema);
+	if (!validation.ok) return validation.error.response;
 
-	if (!city || !street) {
-		return json(
-			{ error: 'VALIDATION_ERROR', message: "Параметри city та street обов'язкові" },
-			{ status: 400 }
-		);
-	}
+	const { region, city, street } = validation.value;
 
 	const start = Date.now();
-	console.log(`[API] GET /api/status city=${city} street=${street}`);
+	console.log(`[API] GET /api/status region=${region} city=${city} street=${street}`);
 
-	const result = await dtekService.getStatus(city, street);
+	const service = getDtekService(region as RegionCode);
+
+	const result = await withRetry(() => service.getStatus(city, street), {
+		delays: DEFAULT_RETRY_DELAYS,
+		onRetry: (attempt, _, delay) => {
+			console.log(`[API] /api/status retry ${attempt}, waiting ${delay}ms`);
+		},
+	});
+
 	const fetchedAt = Date.now();
-
 	console.log(`[API] GET /api/status completed in ${fetchedAt - start}ms`);
 
 	if (!result.ok) {
-		return handleServiceError('[API] GET /api/status failed:', result.error);
+		return handleServiceError(
+			`[API] GET /api/status?region=${region}&city=${city}&street=${street} failed:`,
+			unwrapRetryError(result.error)
+		);
 	}
 
 	const response = result.value;
@@ -78,7 +87,7 @@ export const GET: RequestHandler = async ({ url }) => {
 	}
 
 	// Fetch schedules for referenced groups
-	const schedulesResult = await dtekService.getSchedules([...groupIds]);
+	const schedulesResult = await service.getSchedules([...groupIds]);
 	const schedules = schedulesResult.ok ? schedulesResult.value : {};
 
 	// Return all buildings with transformed status and schedules

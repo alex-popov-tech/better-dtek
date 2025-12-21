@@ -1,22 +1,31 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { dtekService } from '$lib/server';
-import { handleServiceError } from '$lib/server/route-utils';
+import { getDtekService } from '$lib/server';
+import { handleServiceError, unwrapRetryError } from '$lib/server/route-utils';
+import { validateQuery } from '$lib/server/validate';
+import { cityQuerySchema } from '$lib/schemas';
+import type { RegionCode } from '$lib/constants/regions';
+import { withRetry, DEFAULT_RETRY_DELAYS } from '$lib/utils/retry';
 
 export const GET: RequestHandler = async ({ url }) => {
-	const city = url.searchParams.get('city');
+	const validation = validateQuery(url, cityQuerySchema);
+	if (!validation.ok) return validation.error.response;
 
-	if (!city) {
-		return json(
-			{ error: 'VALIDATION_ERROR', message: "Параметр city обов'язковий" },
-			{ status: 400 }
-		);
-	}
+	const { region, city } = validation.value;
+	const service = getDtekService(region as RegionCode);
 
-	const result = await dtekService.getStreets(city);
+	const result = await withRetry(() => service.getStreets(city), {
+		delays: DEFAULT_RETRY_DELAYS,
+		onRetry: (attempt, _, delay) => {
+			console.log(`[API] /api/streets retry ${attempt}, waiting ${delay}ms`);
+		},
+	});
 
 	if (!result.ok) {
-		return handleServiceError('[API] GET /api/streets failed:', result.error);
+		return handleServiceError(
+			`[API] GET /api/streets?region=${region}&city=${city} failed:`,
+			unwrapRetryError(result.error)
+		);
 	}
 
 	return json(
