@@ -1,4 +1,5 @@
 import type { DtekBuildingStatus, ScheduleRange } from './dtek.js';
+import type { RegionCode } from '$lib/constants/regions.js';
 
 /**
  * Emergency outage info with time range
@@ -23,6 +24,8 @@ export interface BuildingStatus {
 export interface SavedAddress {
 	/** UUID */
 	id: string;
+	/** Region code, e.g. "kem", "oem" */
+	region: RegionCode;
 	/** City name, e.g. "м. Одеса" */
 	city: string;
 	/** Street name, e.g. "вул. Педагогічна" */

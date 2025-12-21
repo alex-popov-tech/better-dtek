@@ -7,7 +7,7 @@ import type { ScheduleStatus } from '$lib/types/dtek.js';
 export const UI_TEXT = {
 	// Header
 	appTitle: 'Відключення світла',
-	appSubtitle: 'ДТЕК Одеські електромережі',
+	appSubtitle: 'ДТЕК Електромережі',
 
 	// Theme
 	lightMode: 'Світла тема',
@@ -18,11 +18,14 @@ export const UI_TEXT = {
 	savedAddresses: 'Збережені адреси',
 	noSavedAddresses: 'Немає збережених адрес',
 	addFirstAddress: 'Додайте першу адресу',
+	emptyStateValueProp: 'Відстежуйте планові та аварійні відключення',
 	refreshAll: 'Оновити все',
 
 	// Address form
 	addAddress: 'Додати адресу',
 	editAddress: 'Редагувати адресу',
+	region: 'Область',
+	regionPlaceholder: 'Оберіть область...',
 	city: 'Місто',
 	cityPlaceholder: 'Оберіть місто...',
 	street: 'Вулиця',
@@ -50,6 +53,7 @@ export const UI_TEXT = {
 	error: 'Помилка',
 	retry: 'Спробувати знову',
 	dtekUnavailable: 'Сервіс ДТЕК тимчасово недоступний',
+	regionUnavailable: 'Регіон тимчасово недоступний. Спробуйте пізніше або оберіть інший регіон.',
 	tryLater: 'Спробуйте пізніше',
 	addressNotFound: 'Адресу не знайдено',
 	invalidParams: 'Невірні параметри',

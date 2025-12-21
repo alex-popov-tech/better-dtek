@@ -2,6 +2,7 @@ import { writable, get } from 'svelte/store';
 import type { SavedAddress, BuildingStatus } from '$lib/types/address';
 import type { ScheduleRange } from '$lib/types/dtek';
 import { fetchBuildingStatuses } from '$lib/utils/api-client';
+import { showError } from '$lib/stores/toast';
 
 /**
  * Cached schedule data from API responses
@@ -54,7 +55,7 @@ function createAddressStatusStore() {
 	 * Fetch status for a single address
 	 */
 	async function fetchStatus(address: SavedAddress): Promise<void> {
-		const { id, city, street, building } = address;
+		const { id, region, city, street, building } = address;
 
 		// Check cache first
 		const currentCache = get({ subscribe });
@@ -76,33 +77,10 @@ function createAddressStatusStore() {
 			return newCache;
 		});
 
-		try {
-			const response = await fetchBuildingStatuses(city, street);
+		const result = await fetchBuildingStatuses(region, city, street);
 
-			// Extract status for this specific building
-			const buildingStatus = response.buildings[building] || null;
-
-			// Update schedule cache if schedules are present (merge with existing)
-			if (response.schedules && Object.keys(response.schedules).length > 0) {
-				scheduleCacheStore.update((cache) => ({
-					schedules: { ...cache?.schedules, ...response.schedules },
-					fetchedAt: response.fetchedAt,
-				}));
-			}
-
-			// Update cache with fetched status
-			update((cache) => {
-				const newCache = new Map(cache);
-				newCache.set(id, {
-					status: buildingStatus,
-					fetchedAt: response.fetchedAt,
-					loading: false,
-					error: null,
-				});
-				return newCache;
-			});
-		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : 'Невідома помилка';
+		if (!result.ok) {
+			showError(result.error.message);
 
 			// Update cache with error
 			update((cache) => {
@@ -111,11 +89,37 @@ function createAddressStatusStore() {
 					status: cachedEntry?.status || null,
 					fetchedAt: cachedEntry?.fetchedAt || 0,
 					loading: false,
-					error: errorMessage,
+					error: result.error.message,
 				});
 				return newCache;
 			});
+			return;
 		}
+
+		const response = result.value;
+
+		// Extract status for this specific building
+		const buildingStatus = response.buildings[building] || null;
+
+		// Update schedule cache if schedules are present (merge with existing)
+		if (response.schedules && Object.keys(response.schedules).length > 0) {
+			scheduleCacheStore.update((cache) => ({
+				schedules: { ...cache?.schedules, ...response.schedules },
+				fetchedAt: response.fetchedAt,
+			}));
+		}
+
+		// Update cache with fetched status
+		update((cache) => {
+			const newCache = new Map(cache);
+			newCache.set(id, {
+				status: buildingStatus,
+				fetchedAt: response.fetchedAt,
+				loading: false,
+				error: null,
+			});
+			return newCache;
+		});
 	}
 
 	/**
@@ -130,7 +134,7 @@ function createAddressStatusStore() {
 	 * Force refresh status for a single address (ignoring cache TTL, but keeping old data visible)
 	 */
 	async function refreshStatus(addressId: string, address: SavedAddress): Promise<void> {
-		const { city, street, building } = address;
+		const { region, city, street, building } = address;
 
 		// Get current cached entry to preserve old data
 		const currentCache = get({ subscribe });
@@ -148,30 +152,10 @@ function createAddressStatusStore() {
 			return newCache;
 		});
 
-		try {
-			const response = await fetchBuildingStatuses(city, street);
-			const buildingStatus = response.buildings[building] || null;
+		const result = await fetchBuildingStatuses(region, city, street);
 
-			// Update schedule cache if schedules are present (merge with existing)
-			if (response.schedules && Object.keys(response.schedules).length > 0) {
-				scheduleCacheStore.update((cache) => ({
-					schedules: { ...cache?.schedules, ...response.schedules },
-					fetchedAt: response.fetchedAt,
-				}));
-			}
-
-			update((cache) => {
-				const newCache = new Map(cache);
-				newCache.set(addressId, {
-					status: buildingStatus,
-					fetchedAt: response.fetchedAt,
-					loading: false,
-					error: null,
-				});
-				return newCache;
-			});
-		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : 'Невідома помилка';
+		if (!result.ok) {
+			showError(result.error.message);
 
 			update((cache) => {
 				const newCache = new Map(cache);
@@ -179,11 +163,34 @@ function createAddressStatusStore() {
 					status: cachedEntry?.status || null,
 					fetchedAt: cachedEntry?.fetchedAt || 0,
 					loading: false,
-					error: errorMessage,
+					error: result.error.message,
 				});
 				return newCache;
 			});
+			return;
 		}
+
+		const response = result.value;
+		const buildingStatus = response.buildings[building] || null;
+
+		// Update schedule cache if schedules are present (merge with existing)
+		if (response.schedules && Object.keys(response.schedules).length > 0) {
+			scheduleCacheStore.update((cache) => ({
+				schedules: { ...cache?.schedules, ...response.schedules },
+				fetchedAt: response.fetchedAt,
+			}));
+		}
+
+		update((cache) => {
+			const newCache = new Map(cache);
+			newCache.set(addressId, {
+				status: buildingStatus,
+				fetchedAt: response.fetchedAt,
+				loading: false,
+				error: null,
+			});
+			return newCache;
+		});
 	}
 
 	/**

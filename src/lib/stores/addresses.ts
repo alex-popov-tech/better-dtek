@@ -3,21 +3,45 @@ import type { SavedAddress } from '$lib/types/address.js';
 import { loadFromStorage, saveToStorage } from '$lib/utils/storage';
 
 const STORAGE_KEY = 'dtek-addresses';
+const SCHEMA_VERSION = 2; // Version 2 adds region field
 
 /**
- * Load addresses from localStorage
+ * Versioned storage format
  */
-function loadAddresses(): SavedAddress[] {
-	return loadFromStorage<SavedAddress[]>(STORAGE_KEY, [], (parsed) =>
-		Array.isArray(parsed) ? parsed : null
-	);
+interface StoredData {
+	version: number;
+	data: SavedAddress[];
 }
 
 /**
- * Save addresses to localStorage
+ * Load addresses from localStorage with schema validation
+ * Clears data if schema version doesn't match
+ */
+function loadAddresses(): SavedAddress[] {
+	return loadFromStorage<SavedAddress[]>(STORAGE_KEY, [], (parsed) => {
+		// Check if it's the new versioned format
+		if (typeof parsed === 'object' && parsed !== null && 'version' in parsed) {
+			const stored = parsed as StoredData;
+			if (stored.version !== SCHEMA_VERSION) {
+				console.warn(
+					`[AddressStore] Schema version mismatch: expected ${SCHEMA_VERSION}, got ${stored.version}. Clearing data.`
+				);
+				return null; // Return null to use default (empty array)
+			}
+			return Array.isArray(stored.data) ? stored.data : null;
+		}
+		// Old format (array directly) - version 1 without region, clear it
+		console.warn('[AddressStore] Old schema format detected (missing version), clearing data.');
+		return null;
+	});
+}
+
+/**
+ * Save addresses to localStorage with version
  */
 function saveAddresses(addresses: SavedAddress[]): void {
-	saveToStorage(STORAGE_KEY, addresses);
+	const data: StoredData = { version: SCHEMA_VERSION, data: addresses };
+	saveToStorage(STORAGE_KEY, data);
 }
 
 /**
