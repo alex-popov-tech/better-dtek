@@ -8,13 +8,14 @@
 		onchange: (city: string) => void;
 		disabled?: boolean;
 		error?: string;
+		success?: boolean;
 	}
 
-	let { value = $bindable(), onchange, disabled = false, error }: Props = $props();
+	let { value = $bindable(), onchange, disabled = false, error, success = false }: Props = $props();
 
 	// Subscribe to cities store
 	const citiesState = $derived($citiesStore);
-	const combinedError = $derived(error || citiesState.error || undefined);
+	const combinedError = $derived(error || undefined);
 </script>
 
 <BaseAutocomplete
@@ -26,6 +27,8 @@
 	loading={citiesState.loading}
 	{disabled}
 	error={combinedError}
+	{success}
 	inputId="city"
 	emptyState={UI_TEXT.noResults}
+	showAllOnFocus={true}
 />

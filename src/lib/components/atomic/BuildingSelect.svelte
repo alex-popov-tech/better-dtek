@@ -9,6 +9,7 @@
 		disabled?: boolean;
 		loading?: boolean;
 		error?: string;
+		success?: boolean;
 	}
 
 	let {
@@ -18,6 +19,7 @@
 		disabled = false,
 		loading = false,
 		error,
+		success = false,
 	}: Props = $props();
 
 	const isDisabled = $derived(disabled || buildings.length === 0);
@@ -32,6 +34,7 @@
 	{loading}
 	disabled={isDisabled}
 	{error}
+	{success}
 	minChars={1}
 	inputId="building"
 	showAllOnFocus={true}

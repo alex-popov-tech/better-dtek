@@ -23,10 +23,10 @@
 	.traffic-light {
 		display: flex;
 		flex-direction: column;
-		gap: 4px;
-		padding: 8px 6px;
+		gap: 3px;
+		padding: 6px 5px;
 		background: #374151;
-		border-radius: 20px;
+		border-radius: 16px;
 		border: 2px solid #4b5563;
 		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 	}
@@ -37,8 +37,8 @@
 	}
 
 	.light {
-		width: 20px;
-		height: 20px;
+		width: 16px;
+		height: 16px;
 		border-radius: 50%;
 		transition: all 0.2s ease;
 		border: 1px solid rgba(0, 0, 0, 0.2);

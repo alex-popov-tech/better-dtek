@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { SavedAddress } from '$lib/types/address';
 	import type { StatusCacheEntry, ScheduleCache } from '$lib/stores/address-status';
-	import type { ScheduleRange } from '$lib/types/dtek';
 	import { UI_TEXT } from '$lib/constants/ui-text';
 	import AddressCard from './AddressCard.svelte';
 	import RefreshButton from '../atomic/RefreshButton.svelte';
@@ -47,15 +46,15 @@
 
 	<!-- Empty state -->
 	{#if isEmpty}
-		<div class="card p-12 text-center space-y-4">
-			<div class="text-surface-600-300-token">
+		<div class="card p-12 text-center space-y-6">
+			<div class="text-surface-500-400-token">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					fill="none"
 					viewBox="0 0 24 24"
 					stroke-width="1.5"
 					stroke="currentColor"
-					class="w-16 h-16 mx-auto mb-4"
+					class="w-20 h-20 mx-auto"
 				>
 					<path
 						stroke-linecap="round"
@@ -65,18 +64,29 @@
 				</svg>
 			</div>
 
-			<div>
-				<h3 class="h3 mb-2">{UI_TEXT.noSavedAddresses}</h3>
+			<div class="space-y-2">
+				<h3 class="h3">{UI_TEXT.noSavedAddresses}</h3>
 				<p class="text-surface-600-300-token">{UI_TEXT.addFirstAddress}</p>
+				<p class="text-surface-500-400-token text-sm">{UI_TEXT.emptyStateValueProp}</p>
 			</div>
 
 			<button
 				type="button"
-				class="btn variant-filled-primary"
+				class="btn btn-lg variant-filled-primary"
 				onclick={onadd}
 				data-testid="add-address-btn"
 			>
-				{UI_TEXT.addAddress}
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke-width="2"
+					stroke="currentColor"
+					class="w-5 h-5"
+				>
+					<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+				</svg>
+				<span>{UI_TEXT.addAddress}</span>
 			</button>
 		</div>
 	{:else}

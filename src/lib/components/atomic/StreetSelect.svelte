@@ -1,55 +1,81 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { UI_TEXT } from '$lib/constants/ui-text';
 	import { fetchStreets } from '$lib/utils/api-client';
+	import { showError } from '$lib/stores/toast';
+	import type { RegionCode } from '$lib/constants/regions';
 	import BaseAutocomplete from './BaseAutocomplete.svelte';
 
 	interface Props {
+		region: RegionCode;
 		city: string | null;
 		value: string | null;
 		onchange: (street: string) => void;
 		disabled?: boolean;
 		error?: string;
+		success?: boolean;
 	}
 
-	let { city, value = $bindable(), onchange, disabled = false, error }: Props = $props();
+	let {
+		region,
+		city,
+		value = $bindable(),
+		onchange,
+		disabled = false,
+		error,
+		success = false,
+	}: Props = $props();
 
 	let streets = $state<string[]>([]);
 	let loading = $state(false);
 	let loadError = $state<string | null>(null);
 	let previousCity = $state<string | null>(null);
+	let previousRegion = $state<RegionCode | null>(null);
 
-	// Fetch streets when city changes
+	// Fetch streets when region or city changes
 	$effect(() => {
-		if (city) {
-			const cityChanged = previousCity !== null && previousCity !== city;
+		// Use untrack to prevent reading previousCity/previousRegion as dependencies
+		// This avoids a reactive loop where writing to these values triggers re-execution
+		const prevCity = untrack(() => previousCity);
+		const prevRegion = untrack(() => previousRegion);
+
+		if (region && city) {
+			const cityChanged = prevCity !== null && prevCity !== city;
+			const regionChanged = prevRegion !== null && prevRegion !== region;
 			previousCity = city;
+			previousRegion = region;
 
 			async function loadStreets() {
-				try {
-					loading = true;
-					loadError = null;
-					streets = [];
+				loading = true;
+				loadError = null;
+				streets = [];
 
-					// Only reset value when city actually changed, not on initial load
-					if (cityChanged) {
-						value = null;
-					}
-
-					const fetchedStreets = await fetchStreets(city!);
-					streets = fetchedStreets;
-				} catch (err) {
-					loadError = err instanceof Error ? err.message : UI_TEXT.error;
-					console.error('Failed to load streets:', err);
-				} finally {
-					loading = false;
+				// Reset value when city or region changed (not on initial load)
+				if (cityChanged || regionChanged) {
+					value = null;
 				}
+
+				const result = await fetchStreets(region, city!);
+
+				if (!result.ok) {
+					loadError = result.error.message;
+					showError(result.error.message);
+				} else {
+					streets = result.value;
+				}
+
+				loading = false;
 			}
 
 			loadStreets();
 		} else {
 			previousCity = null;
+			previousRegion = null;
 			streets = [];
-			value = null;
+			// Only write if value is different to prevent potential infinite loop
+			if (value !== null) {
+				value = null;
+			}
 		}
 	});
 
@@ -66,6 +92,8 @@
 	{loading}
 	disabled={isDisabled}
 	error={combinedError}
+	{success}
 	inputId="street"
 	emptyState={UI_TEXT.noResults}
+	showAllOnFocus={true}
 />

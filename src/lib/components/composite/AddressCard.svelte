@@ -2,6 +2,7 @@
 	import type { SavedAddress, BuildingStatus } from '$lib/types/address';
 	import type { ScheduleRange } from '$lib/types/dtek';
 	import { UI_TEXT, TRAFFIC_LIGHT_LABELS, SCHEDULE_INFO_PREFIX } from '$lib/constants/ui-text';
+	import { REGIONS } from '$lib/constants/regions';
 	import { formatRelativeTime } from '$lib/utils/date-formatter';
 	import {
 		getUkrainianDayOfWeek,
@@ -40,6 +41,7 @@
 
 	const displayLabel = $derived(address.label || address.street);
 	const lastUpdated = $derived(fetchedAt ? formatRelativeTime(fetchedAt) : UI_TEXT.loading);
+	const regionName = $derived(REGIONS[address.region]?.name || address.region);
 
 	// Get schedule for this building's group
 	const groupId = $derived(status?.group);
@@ -93,22 +95,22 @@
 		return `${fromParsed.time} ${fromParsed.date} — ${toParsed.time} ${toParsed.date}`;
 	});
 
-	// Status text color class
+	// Status text color class - using darker shades for WCAG 4.5:1 contrast
 	const statusColorClass = $derived.by(() => {
 		switch (trafficLightStatus) {
 			case 'on':
-				return 'text-green-500';
+				return 'text-green-700 dark:text-green-500';
 			case 'maybe':
-				return 'text-yellow-500';
+				return 'text-amber-700 dark:text-amber-500';
 			case 'off':
 			case 'emergency':
-				return 'text-red-500';
+				return 'text-red-600 dark:text-red-400';
 		}
 	});
 </script>
 
 <div
-	class="card card-hover p-4 shadow-md ring-1 ring-surface-200-700-token relative h-full flex flex-col"
+	class="card card-hover p-4 shadow-lg ring-1 ring-surface-200-700-token relative h-full flex flex-col transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5"
 >
 	{#if loading && !status}
 		<!-- Skeleton placeholder (only on initial load, no cached data) -->
@@ -125,8 +127,8 @@
 				<!-- Left: Title, Address, Status -->
 				<div class="flex flex-col">
 					<h3 class="h4 font-bold mb-1">{displayLabel}</h3>
-					<p class="text-sm text-surface-600-300-token mb-3">
-						{address.city}, {address.street}, {address.building}
+					<p class="text-sm text-surface-700-200-token mb-3">
+						{regionName}, {address.city}, {address.street}, {address.building}
 					</p>
 
 					{#if error}
@@ -137,24 +139,26 @@
 							</button>
 						</div>
 					{:else}
-						<!-- Status text -->
-						<div class="text-lg font-medium {statusColorClass}">
-							{TRAFFIC_LIGHT_LABELS[trafficLightStatus]}
+						<!-- Status text group - tighter spacing -->
+						<div class="space-y-0.5">
+							<div class="text-lg font-medium {statusColorClass}">
+								{TRAFFIC_LIGHT_LABELS[trafficLightStatus]}
+							</div>
+							{#if currentRangeInfo && trafficLightStatus !== 'emergency'}
+								<div class="text-xs text-surface-600-300-token">
+									{SCHEDULE_INFO_PREFIX}
+									{currentRangeInfo}
+									{#if queueDisplay}
+										({queueDisplay}){/if}
+								</div>
+							{:else if trafficLightStatus === 'emergency'}
+								<div class="text-xs text-surface-600-300-token">
+									{#if emergencyTimeRange}{emergencyTimeRange}{:else}Аварія на лінії{/if}
+									{#if queueDisplay}
+										({queueDisplay}){/if}
+								</div>
+							{/if}
 						</div>
-						{#if currentRangeInfo && trafficLightStatus !== 'emergency'}
-							<div class="text-xs text-surface-600-300-token">
-								{SCHEDULE_INFO_PREFIX}
-								{currentRangeInfo}
-								{#if queueDisplay}
-									({queueDisplay}){/if}
-							</div>
-						{:else if trafficLightStatus === 'emergency'}
-							<div class="text-xs text-surface-600-300-token">
-								{#if emergencyTimeRange}{emergencyTimeRange}{:else}Аварія на лінії{/if}
-								{#if queueDisplay}
-									({queueDisplay}){/if}
-							</div>
-						{/if}
 					{/if}
 				</div>
 
@@ -181,7 +185,7 @@
 			<span>
 				{UI_TEXT.lastUpdated}: {lastUpdated}
 			</span>
-			<div class="flex gap-1">
+			<div class="flex gap-2">
 				<!-- Edit button -->
 				<button
 					type="button"

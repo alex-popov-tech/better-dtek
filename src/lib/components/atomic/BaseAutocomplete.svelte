@@ -4,6 +4,7 @@
 	import { ProgressRadial } from '@skeletonlabs/skeleton';
 	import { debounce } from '$lib/utils/debounce';
 	import { untrack } from 'svelte';
+	import ErrorMessage from './ErrorMessage.svelte';
 
 	interface Props {
 		value: string | null;
@@ -14,6 +15,7 @@
 		loading?: boolean;
 		disabled?: boolean;
 		error?: string;
+		success?: boolean;
 		minChars?: number;
 		inputId: string;
 		showAllOnFocus?: boolean;
@@ -29,6 +31,7 @@
 		loading = false,
 		disabled = false,
 		error,
+		success = false,
 		minChars = 2,
 		inputId,
 		showAllOnFocus = false,
@@ -79,11 +82,13 @@
 		onchange(selected);
 	}
 
-	const popupSettings: PopupSettings = $derived({
+	// Use a stable object reference since inputId doesn't change after mount
+	// This prevents the popup directive from reinitializing on every render
+	const popupSettings: PopupSettings = {
 		event: 'focus-click',
 		target: `${inputId}Autocomplete`,
 		placement: 'bottom',
-	});
+	};
 </script>
 
 <div class="flex flex-col gap-1">
@@ -95,14 +100,18 @@
 		<input
 			id="{inputId}-input"
 			type="text"
-			class="input autocomplete"
+			class="input autocomplete rounded-full"
 			class:input-error={error}
+			class:input-success={success && !error}
+			class:input-loading={loading}
 			bind:value={inputValue}
 			{placeholder}
 			disabled={disabled || loading}
 			use:popup={popupSettings}
 			aria-required="true"
 			aria-invalid={!!error}
+			aria-describedby={error ? `${inputId}-error` : undefined}
+			aria-busy={loading}
 			data-testid="{inputId}-input"
 		/>
 
@@ -125,11 +134,10 @@
 				options={autocompleteOptions}
 				on:selection={handleSelection}
 				{emptyState}
+				transitions={false}
 			/>
 		</div>
 	</div>
 
-	{#if error}
-		<span class="text-error-500 text-sm">{error}</span>
-	{/if}
+	<ErrorMessage {error} {inputId} />
 </div>
