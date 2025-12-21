@@ -3,13 +3,23 @@ import { get } from 'svelte/store';
 import { addressStatusStore } from '$lib/stores/address-status';
 import type { SavedAddress } from '$lib/types/address';
 import * as apiClient from '$lib/utils/api-client';
+import { ok, err } from '$lib/types/result';
+import { apiError } from '$lib/types/errors';
 
 // Mock API client
 vi.mock('$lib/utils/api-client');
 
+// Mock toast store
+vi.mock('$lib/stores/toast', () => ({
+	showError: vi.fn(),
+	showSuccess: vi.fn(),
+	showInfo: vi.fn(),
+}));
+
 describe('addressStatusStore', () => {
 	const mockAddress1: SavedAddress = {
 		id: 'addr-1',
+		region: 'oem',
 		city: 'м. Одеса',
 		street: 'вул. Педагогічна',
 		building: '25/39',
@@ -19,6 +29,7 @@ describe('addressStatusStore', () => {
 
 	const mockAddress2: SavedAddress = {
 		id: 'addr-2',
+		region: 'oem',
 		city: 'м. Одеса',
 		street: 'вул. Дерибасівська',
 		building: '12',
@@ -48,7 +59,7 @@ describe('addressStatusStore', () => {
 				fetchedAt: Date.now(),
 			};
 
-			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(mockResponse);
+			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(ok(mockResponse));
 
 			await addressStatusStore.fetchStatus(mockAddress1);
 
@@ -82,7 +93,7 @@ describe('addressStatusStore', () => {
 				if (entry?.loading) {
 					loadingStateObserved = true;
 				}
-				return mockResponse;
+				return ok(mockResponse);
 			});
 
 			await addressStatusStore.fetchStatus(mockAddress1);
@@ -102,7 +113,7 @@ describe('addressStatusStore', () => {
 				fetchedAt: Date.now(),
 			};
 
-			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(mockResponse);
+			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(ok(mockResponse));
 
 			await addressStatusStore.fetchStatus(mockAddress1);
 
@@ -115,7 +126,9 @@ describe('addressStatusStore', () => {
 
 		it('handles fetch error and stores error message', async () => {
 			const errorMessage = 'Сервіс ДТЕК тимчасово недоступний';
-			vi.mocked(apiClient.fetchBuildingStatuses).mockRejectedValueOnce(new Error(errorMessage));
+			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(
+				err(apiError('SERVER_ERROR', errorMessage))
+			);
 
 			await addressStatusStore.fetchStatus(mockAddress1);
 
@@ -136,7 +149,7 @@ describe('addressStatusStore', () => {
 				fetchedAt: Date.now(),
 			};
 
-			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(mockResponse);
+			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(ok(mockResponse));
 
 			// First fetch
 			await addressStatusStore.fetchStatus(mockAddress1);
@@ -173,7 +186,7 @@ describe('addressStatusStore', () => {
 				fetchedAt: Date.now() + 6 * 60 * 1000,
 			};
 
-			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(mockResponse1);
+			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(ok(mockResponse1));
 
 			// First fetch
 			await addressStatusStore.fetchStatus(mockAddress1);
@@ -183,7 +196,7 @@ describe('addressStatusStore', () => {
 			// Advance time by 6 minutes (past 5-minute TTL)
 			vi.advanceTimersByTime(6 * 60 * 1000);
 
-			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(mockResponse2);
+			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(ok(mockResponse2));
 
 			// Second fetch - cache should be stale, so refetch
 			await addressStatusStore.fetchStatus(mockAddress1);
@@ -198,7 +211,9 @@ describe('addressStatusStore', () => {
 
 		it('refetches if previous fetch had error', async () => {
 			// First fetch - error
-			vi.mocked(apiClient.fetchBuildingStatuses).mockRejectedValueOnce(new Error('Network error'));
+			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(
+				err(apiError('NETWORK_ERROR', 'Network error'))
+			);
 
 			await addressStatusStore.fetchStatus(mockAddress1);
 
@@ -215,7 +230,7 @@ describe('addressStatusStore', () => {
 				fetchedAt: Date.now(),
 			};
 
-			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(mockResponse);
+			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(ok(mockResponse));
 
 			await addressStatusStore.fetchStatus(mockAddress1);
 
@@ -252,8 +267,8 @@ describe('addressStatusStore', () => {
 			};
 
 			vi.mocked(apiClient.fetchBuildingStatuses)
-				.mockResolvedValueOnce(mockResponse1)
-				.mockResolvedValueOnce(mockResponse2);
+				.mockResolvedValueOnce(ok(mockResponse1))
+				.mockResolvedValueOnce(ok(mockResponse2));
 
 			await addressStatusStore.fetchAllStatuses([mockAddress1, mockAddress2]);
 
@@ -268,16 +283,18 @@ describe('addressStatusStore', () => {
 
 		it('continues fetching even if one address fails', async () => {
 			vi.mocked(apiClient.fetchBuildingStatuses)
-				.mockRejectedValueOnce(new Error('Failed for address 1'))
-				.mockResolvedValueOnce({
-					city: 'м. Одеса',
-					street: 'вул. Дерибасівська',
-					buildings: {
-						'12': {},
-					},
-					schedules: {},
-					fetchedAt: Date.now(),
-				});
+				.mockResolvedValueOnce(err(apiError('NETWORK_ERROR', 'Failed for address 1')))
+				.mockResolvedValueOnce(
+					ok({
+						city: 'м. Одеса',
+						street: 'вул. Дерибасівська',
+						buildings: {
+							'12': {},
+						},
+						schedules: {},
+						fetchedAt: Date.now(),
+					})
+				);
 
 			await addressStatusStore.fetchAllStatuses([mockAddress1, mockAddress2]);
 
@@ -308,7 +325,7 @@ describe('addressStatusStore', () => {
 				fetchedAt: Date.now(),
 			};
 
-			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(mockResponse1);
+			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(ok(mockResponse1));
 
 			await addressStatusStore.fetchStatus(mockAddress1);
 
@@ -327,7 +344,7 @@ describe('addressStatusStore', () => {
 				fetchedAt: Date.now(),
 			};
 
-			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(mockResponse2);
+			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(ok(mockResponse2));
 
 			await addressStatusStore.refreshStatus('addr-1', mockAddress1);
 
@@ -350,7 +367,7 @@ describe('addressStatusStore', () => {
 				fetchedAt: Date.now(),
 			};
 
-			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(mockResponse);
+			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(ok(mockResponse));
 
 			await addressStatusStore.fetchStatus(mockAddress1);
 
@@ -376,7 +393,7 @@ describe('addressStatusStore', () => {
 				fetchedAt: Date.now(),
 			};
 
-			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(mockResponse);
+			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(ok(mockResponse));
 
 			await addressStatusStore.fetchStatus(mockAddress1);
 

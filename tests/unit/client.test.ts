@@ -7,9 +7,9 @@ import {
 	CookieJar,
 	fetchTemplate,
 	fetchBuildingStatuses,
-	BASE_URL,
-	TEMPLATE_URL,
-	AJAX_URL,
+	getBaseUrl,
+	getTemplateUrl,
+	getAjaxUrl,
 	USER_AGENT,
 } from '$lib/server/dtek/client';
 import type { DtekStatusResponse } from '$lib/types';
@@ -97,8 +97,8 @@ describe('CookieJar', () => {
 			]);
 		});
 
-		it('should return only essential DTEK cookies', () => {
-			const filtered = jar.getFiltered();
+		it('should return only essential DTEK cookies for region', () => {
+			const filtered = jar.getFiltered('oem');
 			expect(filtered).toContain('dtek-oem=session123');
 			expect(filtered).toContain('_csrf-dtek-oem=csrf456');
 			expect(filtered).toContain('_language=uk');
@@ -108,7 +108,7 @@ describe('CookieJar', () => {
 		});
 
 		it('should exclude non-essential cookies', () => {
-			const filtered = jar.getFiltered();
+			const filtered = jar.getFiltered('oem');
 			expect(filtered).not.toContain('other_cookie');
 			expect(filtered).not.toContain('random');
 		});
@@ -116,7 +116,7 @@ describe('CookieJar', () => {
 		it('should return empty string when no essential cookies', () => {
 			jar.clear();
 			jar.absorb(['other=value; Path=/', 'random=data; Path=/']);
-			expect(jar.getFiltered()).toBe('');
+			expect(jar.getFiltered('oem')).toBe('');
 		});
 
 		it('should handle Imperva cookies with various suffixes', () => {
@@ -126,10 +126,30 @@ describe('CookieJar', () => {
 				'incap_ses_999_123=value2; Path=/',
 				'incap_wrt_abc=value3; Path=/',
 			]);
-			const filtered = jar.getFiltered();
+			const filtered = jar.getFiltered('oem');
 			expect(filtered).toContain('visid_incap_123456=value1');
 			expect(filtered).toContain('incap_ses_999_123=value2');
 			expect(filtered).toContain('incap_wrt_abc=value3');
+		});
+
+		it('should filter cookies by region code', () => {
+			jar.clear();
+			jar.absorb([
+				'dtek-oem=oem_session; Path=/',
+				'dtek-kem=kem_session; Path=/',
+				'_csrf-dtek-oem=oem_csrf; Path=/',
+				'_csrf-dtek-kem=kem_csrf; Path=/',
+			]);
+			const oemFiltered = jar.getFiltered('oem');
+			expect(oemFiltered).toContain('dtek-oem=oem_session');
+			expect(oemFiltered).toContain('_csrf-dtek-oem=oem_csrf');
+			expect(oemFiltered).not.toContain('dtek-kem');
+			expect(oemFiltered).not.toContain('_csrf-dtek-kem');
+
+			const kemFiltered = jar.getFiltered('kem');
+			expect(kemFiltered).toContain('dtek-kem=kem_session');
+			expect(kemFiltered).toContain('_csrf-dtek-kem=kem_csrf');
+			expect(kemFiltered).not.toContain('dtek-oem');
 		});
 	});
 
@@ -177,10 +197,10 @@ describe('fetchTemplate()', () => {
 			})
 		);
 
-		await fetchTemplate();
+		await fetchTemplate('oem');
 
 		expect(mockFetch).toHaveBeenCalledWith(
-			TEMPLATE_URL,
+			getTemplateUrl('oem'),
 			expect.objectContaining({
 				method: 'GET',
 				headers: expect.objectContaining({
@@ -207,7 +227,7 @@ describe('fetchTemplate()', () => {
 			})
 		);
 
-		const result = await fetchTemplate();
+		const result = await fetchTemplate('oem');
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {
@@ -234,7 +254,7 @@ describe('fetchTemplate()', () => {
 
 		mockFetch.mockResolvedValueOnce(mockResponse);
 
-		const result = await fetchTemplate();
+		const result = await fetchTemplate('oem');
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {
@@ -279,6 +299,7 @@ describe('fetchBuildingStatuses()', () => {
 		]);
 
 		await fetchBuildingStatuses({
+			region: 'oem',
 			city: 'м. Одеса',
 			street: 'вул. Педагогічна',
 			updateFact: '11.12.2025 20:51',
@@ -287,7 +308,7 @@ describe('fetchBuildingStatuses()', () => {
 		});
 
 		expect(mockFetch).toHaveBeenCalledWith(
-			AJAX_URL,
+			getAjaxUrl('oem'),
 			expect.objectContaining({
 				method: 'POST',
 				headers: expect.objectContaining({
@@ -297,8 +318,8 @@ describe('fetchBuildingStatuses()', () => {
 					'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
 					'x-requested-with': 'XMLHttpRequest',
 					'x-csrf-token': 'test-csrf-token',
-					origin: BASE_URL,
-					referer: TEMPLATE_URL,
+					origin: getBaseUrl('oem'),
+					referer: getTemplateUrl('oem'),
 					cookie: expect.stringContaining('dtek-oem=session123'),
 					'cache-control': 'no-cache',
 					pragma: 'no-cache',
@@ -353,6 +374,7 @@ describe('fetchBuildingStatuses()', () => {
 		cookies.absorb(['dtek-oem=session123; Path=/']);
 
 		const result = await fetchBuildingStatuses({
+			region: 'oem',
 			city: 'м. Одеса',
 			street: 'вул. Педагогічна',
 			updateFact: '11.12.2025 20:51',
@@ -388,6 +410,7 @@ describe('fetchBuildingStatuses()', () => {
 		]);
 
 		await fetchBuildingStatuses({
+			region: 'oem',
 			city: 'м. Одеса',
 			street: 'вул. Педагогічна',
 			updateFact: '11.12.2025 20:51',
@@ -421,6 +444,7 @@ describe('fetchBuildingStatuses()', () => {
 		expect(cookies.size).toBe(1);
 
 		await fetchBuildingStatuses({
+			region: 'oem',
 			city: 'м. Одеса',
 			street: 'вул. Педагогічна',
 			updateFact: '11.12.2025 20:51',
@@ -445,6 +469,7 @@ describe('fetchBuildingStatuses()', () => {
 		cookies.absorb(['dtek-oem=session; Path=/']);
 
 		const result = await fetchBuildingStatuses({
+			region: 'oem',
 			city: 'м. Тест',
 			street: 'вул. Тестова',
 			updateFact: '11.12.2025 20:51',
@@ -460,17 +485,21 @@ describe('fetchBuildingStatuses()', () => {
 	});
 });
 
-describe('Module constants', () => {
-	it('should export correct BASE_URL', () => {
-		expect(BASE_URL).toBe('https://www.dtek-oem.com.ua');
+describe('URL generators', () => {
+	it('should generate correct base URL for oem region', () => {
+		expect(getBaseUrl('oem')).toBe('https://www.dtek-oem.com.ua');
 	});
 
-	it('should export correct TEMPLATE_URL', () => {
-		expect(TEMPLATE_URL).toBe('https://www.dtek-oem.com.ua/ua/shutdowns');
+	it('should generate correct base URL for kem region', () => {
+		expect(getBaseUrl('kem')).toBe('https://www.dtek-kem.com.ua');
 	});
 
-	it('should export correct AJAX_URL', () => {
-		expect(AJAX_URL).toBe('https://www.dtek-oem.com.ua/ua/ajax');
+	it('should generate correct template URL for oem region', () => {
+		expect(getTemplateUrl('oem')).toBe('https://www.dtek-oem.com.ua/ua/shutdowns');
+	});
+
+	it('should generate correct ajax URL for dnem region', () => {
+		expect(getAjaxUrl('dnem')).toBe('https://www.dtek-dnem.com.ua/ua/ajax');
 	});
 
 	it('should export USER_AGENT string', () => {

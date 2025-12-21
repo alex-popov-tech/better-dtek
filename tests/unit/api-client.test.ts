@@ -23,36 +23,56 @@ describe('fetchCities', () => {
 			json: async () => mockResponse,
 		});
 
-		const result = await fetchCities();
+		const result = await fetchCities('oem');
 
-		expect(global.fetch).toHaveBeenCalledWith('/api/cities');
-		expect(result).toEqual(['м. Одеса', 'м. Київ', 'м. Львів']);
+		expect(global.fetch).toHaveBeenCalledWith('/api/cities?region=oem');
+		expect(result.ok).toBe(true);
+		if (result.ok) {
+			expect(result.value).toEqual(['м. Одеса', 'м. Київ', 'м. Львів']);
+		}
 	});
 
-	it('throws error on HTTP error response', async () => {
+	it('returns error on HTTP error response', async () => {
 		(global.fetch as any).mockResolvedValueOnce({
 			ok: false,
 			status: 500,
 			statusText: 'Internal Server Error',
 		});
 
-		await expect(fetchCities()).rejects.toThrow();
+		const result = await fetchCities('oem');
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.code).toBe('SERVER_ERROR');
+		}
 	});
 
-	it('throws error on invalid response format', async () => {
+	it('returns error on invalid response format', async () => {
 		(global.fetch as any).mockResolvedValueOnce({
 			ok: true,
 			status: 200,
 			json: async () => ({ cities: 'not an array' }),
 		});
 
-		await expect(fetchCities()).rejects.toThrow('Невірний формат відповіді API');
+		const result = await fetchCities('oem');
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.code).toBe('VALIDATION_ERROR');
+			expect(result.error.message).toBe('Невірний формат відповіді API');
+		}
 	});
 
-	it('throws network error on fetch failure', async () => {
+	it('returns network error on fetch failure', async () => {
 		(global.fetch as any).mockRejectedValueOnce(new TypeError('Failed to fetch'));
 
-		await expect(fetchCities()).rejects.toThrow("Немає з'єднання");
+		const result = await fetchCities('oem');
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.code).toBe('NETWORK_ERROR');
+			expect(result.error.message).toBe("Немає з'єднання");
+		}
 	});
 });
 
@@ -77,46 +97,79 @@ describe('fetchStreets', () => {
 			json: async () => mockResponse,
 		});
 
-		const result = await fetchStreets('м. Одеса');
+		const result = await fetchStreets('oem', 'м. Одеса');
 
 		expect(global.fetch).toHaveBeenCalledWith(
-			'/api/streets?city=%D0%BC.%20%D0%9E%D0%B4%D0%B5%D1%81%D0%B0'
+			'/api/streets?region=oem&city=%D0%BC.%20%D0%9E%D0%B4%D0%B5%D1%81%D0%B0'
 		);
-		expect(result).toEqual(['вул. Педагогічна', 'вул. Дерибасівська']);
+		expect(result.ok).toBe(true);
+		if (result.ok) {
+			expect(result.value).toEqual(['вул. Педагогічна', 'вул. Дерибасівська']);
+		}
 	});
 
-	it('throws error if city is empty', async () => {
-		await expect(fetchStreets('')).rejects.toThrow("Назва міста обов'язкова");
+	it('returns error if city is empty', async () => {
+		const result = await fetchStreets('oem', '');
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.code).toBe('VALIDATION_ERROR');
+			expect(result.error.message).toBe("Назва міста обов'язкова");
+		}
 	});
 
-	it('throws error if city is whitespace only', async () => {
-		await expect(fetchStreets('   ')).rejects.toThrow("Назва міста обов'язкова");
+	it('returns error if city is whitespace only', async () => {
+		const result = await fetchStreets('oem', '   ');
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.code).toBe('VALIDATION_ERROR');
+			expect(result.error.message).toBe("Назва міста обов'язкова");
+		}
 	});
 
-	it('throws error on 400 Bad Request', async () => {
+	it('returns error on 400 Bad Request', async () => {
 		(global.fetch as any).mockResolvedValueOnce({
 			ok: false,
 			status: 400,
 			statusText: 'Bad Request',
 		});
 
-		await expect(fetchStreets('м. Одеса')).rejects.toThrow('Невірні параметри');
+		const result = await fetchStreets('oem', 'м. Одеса');
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.code).toBe('VALIDATION_ERROR');
+			expect(result.error.message).toBe('Невірні параметри');
+		}
 	});
 
-	it('throws error on invalid response format', async () => {
+	it('returns error on invalid response format', async () => {
 		(global.fetch as any).mockResolvedValueOnce({
 			ok: true,
 			status: 200,
 			json: async () => ({ streets: null }),
 		});
 
-		await expect(fetchStreets('м. Одеса')).rejects.toThrow('Невірний формат відповіді API');
+		const result = await fetchStreets('oem', 'м. Одеса');
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.code).toBe('VALIDATION_ERROR');
+			expect(result.error.message).toBe('Невірний формат відповіді API');
+		}
 	});
 
-	it('throws network error on fetch failure', async () => {
+	it('returns network error on fetch failure', async () => {
 		(global.fetch as any).mockRejectedValueOnce(new TypeError('Failed to fetch'));
 
-		await expect(fetchStreets('м. Одеса')).rejects.toThrow("Немає з'єднання");
+		const result = await fetchStreets('oem', 'м. Одеса');
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.code).toBe('NETWORK_ERROR');
+			expect(result.error.message).toBe("Немає з'єднання");
+		}
 	});
 });
 
@@ -147,56 +200,83 @@ describe('fetchBuildingStatuses', () => {
 			json: async () => mockResponse,
 		});
 
-		const result = await fetchBuildingStatuses('м. Одеса', 'вул. Педагогічна');
+		const result = await fetchBuildingStatuses('oem', 'м. Одеса', 'вул. Педагогічна');
 
-		expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/status?city='));
+		expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/status?region=oem'));
 		expect(global.fetch).toHaveBeenCalledWith(
 			expect.stringContaining('%D0%BC.%20%D0%9E%D0%B4%D0%B5%D1%81%D0%B0')
 		);
-		expect(result.buildings).toHaveProperty('25/39');
-		expect(result.buildings['25/39'].emergency).toBeUndefined();
-		expect(result.buildings['27'].emergency).toBeDefined();
+		expect(result.ok).toBe(true);
+		if (result.ok) {
+			expect(result.value.buildings).toHaveProperty('25/39');
+			expect(result.value.buildings['25/39'].emergency).toBeUndefined();
+			expect(result.value.buildings['27'].emergency).toBeDefined();
+		}
 	});
 
-	it('throws error if city is empty', async () => {
-		await expect(fetchBuildingStatuses('', 'вул. Педагогічна')).rejects.toThrow(
-			"Назва міста обов'язкова"
-		);
+	it('returns error if city is empty', async () => {
+		const result = await fetchBuildingStatuses('oem', '', 'вул. Педагогічна');
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.code).toBe('VALIDATION_ERROR');
+			expect(result.error.message).toBe("Назва міста обов'язкова");
+		}
 	});
 
-	it('throws error if street is empty', async () => {
-		await expect(fetchBuildingStatuses('м. Одеса', '')).rejects.toThrow("Назва вулиці обов'язкова");
+	it('returns error if street is empty', async () => {
+		const result = await fetchBuildingStatuses('oem', 'м. Одеса', '');
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.code).toBe('VALIDATION_ERROR');
+			expect(result.error.message).toBe("Назва вулиці обов'язкова");
+		}
 	});
 
-	it('throws error if both city and street are empty', async () => {
-		await expect(fetchBuildingStatuses('', '')).rejects.toThrow("Назва міста обов'язкова");
+	it('returns error if both city and street are empty', async () => {
+		const result = await fetchBuildingStatuses('oem', '', '');
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.code).toBe('VALIDATION_ERROR');
+			expect(result.error.message).toBe("Назва міста обов'язкова");
+		}
 	});
 
-	it('throws error on 400 Bad Request', async () => {
+	it('returns error on 400 Bad Request', async () => {
 		(global.fetch as any).mockResolvedValueOnce({
 			ok: false,
 			status: 400,
 			statusText: 'Bad Request',
 		});
 
-		await expect(fetchBuildingStatuses('м. Одеса', 'вул. Педагогічна')).rejects.toThrow(
-			'Невірні параметри'
-		);
+		const result = await fetchBuildingStatuses('oem', 'м. Одеса', 'вул. Педагогічна');
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.code).toBe('VALIDATION_ERROR');
+			expect(result.error.message).toBe('Невірні параметри');
+		}
 	});
 
-	it('throws error on 503 Service Unavailable', async () => {
+	it('returns error on 503 Service Unavailable', async () => {
 		(global.fetch as any).mockResolvedValueOnce({
 			ok: false,
 			status: 503,
 			statusText: 'Service Unavailable',
 		});
 
-		await expect(fetchBuildingStatuses('м. Одеса', 'вул. Педагогічна')).rejects.toThrow(
-			'Сервіс ДТЕК тимчасово недоступний'
-		);
+		const result = await fetchBuildingStatuses('oem', 'м. Одеса', 'вул. Педагогічна');
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.code).toBe('SERVER_ERROR');
+			expect(result.error.message).toBe('Сервіс ДТЕК тимчасово недоступний');
+		}
 	});
 
-	it('throws error on invalid response format (missing city)', async () => {
+	it('returns error on invalid response format (missing city)', async () => {
 		(global.fetch as any).mockResolvedValueOnce({
 			ok: true,
 			status: 200,
@@ -208,12 +288,16 @@ describe('fetchBuildingStatuses', () => {
 			}),
 		});
 
-		await expect(fetchBuildingStatuses('м. Одеса', 'вул. Педагогічна')).rejects.toThrow(
-			'Невірний формат відповіді API'
-		);
+		const result = await fetchBuildingStatuses('oem', 'м. Одеса', 'вул. Педагогічна');
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.code).toBe('VALIDATION_ERROR');
+			expect(result.error.message).toBe('Невірний формат відповіді API');
+		}
 	});
 
-	it('throws error on invalid response format (invalid buildings)', async () => {
+	it('returns error on invalid response format (invalid buildings)', async () => {
 		(global.fetch as any).mockResolvedValueOnce({
 			ok: true,
 			status: 200,
@@ -226,17 +310,25 @@ describe('fetchBuildingStatuses', () => {
 			}),
 		});
 
-		await expect(fetchBuildingStatuses('м. Одеса', 'вул. Педагогічна')).rejects.toThrow(
-			'Невірний формат відповіді API'
-		);
+		const result = await fetchBuildingStatuses('oem', 'м. Одеса', 'вул. Педагогічна');
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.code).toBe('VALIDATION_ERROR');
+			expect(result.error.message).toBe('Невірний формат відповіді API');
+		}
 	});
 
-	it('throws network error on fetch failure', async () => {
+	it('returns network error on fetch failure', async () => {
 		(global.fetch as any).mockRejectedValueOnce(new TypeError('Failed to fetch'));
 
-		await expect(fetchBuildingStatuses('м. Одеса', 'вул. Педагогічна')).rejects.toThrow(
-			"Немає з'єднання"
-		);
+		const result = await fetchBuildingStatuses('oem', 'м. Одеса', 'вул. Педагогічна');
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.code).toBe('NETWORK_ERROR');
+			expect(result.error.message).toBe("Немає з'єднання");
+		}
 	});
 
 	it('handles empty buildings object', async () => {
@@ -254,8 +346,11 @@ describe('fetchBuildingStatuses', () => {
 			json: async () => mockResponse,
 		});
 
-		const result = await fetchBuildingStatuses('м. Одеса', 'вул. Тестова');
+		const result = await fetchBuildingStatuses('oem', 'м. Одеса', 'вул. Тестова');
 
-		expect(result.buildings).toEqual({});
+		expect(result.ok).toBe(true);
+		if (result.ok) {
+			expect(result.value.buildings).toEqual({});
+		}
 	});
 });

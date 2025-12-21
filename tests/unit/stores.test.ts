@@ -52,6 +52,7 @@ describe('addressesStore', () => {
 
 	it('adds address with generated id and createdAt', () => {
 		addressesStore.add({
+			region: 'oem',
 			city: 'м. Одеса',
 			street: 'вул. Педагогічна',
 			building: '25/39',
@@ -73,6 +74,7 @@ describe('addressesStore', () => {
 
 	it('adds address without optional label', () => {
 		addressesStore.add({
+			region: 'oem',
 			city: 'м. Одеса',
 			street: 'вул. Педагогічна',
 			building: '25/39',
@@ -85,6 +87,7 @@ describe('addressesStore', () => {
 
 	it('adds multiple addresses', () => {
 		addressesStore.add({
+			region: 'oem',
 			city: 'м. Одеса',
 			street: 'вул. Педагогічна',
 			building: '25/39',
@@ -92,6 +95,7 @@ describe('addressesStore', () => {
 		});
 
 		addressesStore.add({
+			region: 'kem',
 			city: 'м. Київ',
 			street: 'вул. Хрещатик',
 			building: '1',
@@ -106,6 +110,7 @@ describe('addressesStore', () => {
 
 	it('updates address by id', () => {
 		addressesStore.add({
+			region: 'oem',
 			city: 'м. Одеса',
 			street: 'вул. Педагогічна',
 			building: '25/39',
@@ -116,6 +121,7 @@ describe('addressesStore', () => {
 		const id = addresses[0].id;
 
 		addressesStore.update(id, {
+			region: 'oem',
 			city: 'м. Одеса',
 			street: 'вул. Педагогічна',
 			building: '25/39',
@@ -129,7 +135,7 @@ describe('addressesStore', () => {
 	});
 
 	it('removes address by id', () => {
-		addressesStore.add({ city: 'test', street: 'test', building: '1' });
+		addressesStore.add({ region: 'oem', city: 'test', street: 'test', building: '1' });
 		const addresses = get(addressesStore);
 
 		addressesStore.remove(addresses[0].id);
@@ -137,8 +143,8 @@ describe('addressesStore', () => {
 	});
 
 	it('removes only the specified address', () => {
-		addressesStore.add({ city: 'test1', street: 'test1', building: '1' });
-		addressesStore.add({ city: 'test2', street: 'test2', building: '2' });
+		addressesStore.add({ region: 'oem', city: 'test1', street: 'test1', building: '1' });
+		addressesStore.add({ region: 'oem', city: 'test2', street: 'test2', building: '2' });
 
 		const addresses = get(addressesStore);
 		const firstId = addresses[0].id;
@@ -151,59 +157,69 @@ describe('addressesStore', () => {
 	});
 
 	it('persists to localStorage on add', () => {
-		addressesStore.add({ city: 'test', street: 'test', building: '1' });
+		addressesStore.add({ region: 'oem', city: 'test', street: 'test', building: '1' });
 
-		const stored = JSON.parse(localStorageMock.getItem('dtek-addresses') || '[]');
-		expect(stored.length).toBe(1);
-		expect(stored[0].city).toBe('test');
+		const stored = JSON.parse(localStorageMock.getItem('dtek-addresses') || '{"data":[]}');
+		expect(stored.version).toBe(2);
+		expect(stored.data.length).toBe(1);
+		expect(stored.data[0].city).toBe('test');
 	});
 
 	it('persists to localStorage on update', () => {
-		addressesStore.add({ city: 'test', street: 'test', building: '1', label: 'Old' });
+		addressesStore.add({
+			region: 'oem',
+			city: 'test',
+			street: 'test',
+			building: '1',
+			label: 'Old',
+		});
 
 		const addresses = get(addressesStore);
 		const id = addresses[0].id;
 
 		addressesStore.update(id, {
+			region: 'oem',
 			city: 'test',
 			street: 'test',
 			building: '1',
 			label: 'New',
 		});
 
-		const stored = JSON.parse(localStorageMock.getItem('dtek-addresses') || '[]');
-		expect(stored.length).toBe(1);
-		expect(stored[0].label).toBe('New');
+		const stored = JSON.parse(localStorageMock.getItem('dtek-addresses') || '{"data":[]}');
+		expect(stored.data.length).toBe(1);
+		expect(stored.data[0].label).toBe('New');
 	});
 
 	it('persists to localStorage on remove', () => {
-		addressesStore.add({ city: 'test1', street: 'test', building: '1' });
-		addressesStore.add({ city: 'test2', street: 'test', building: '2' });
+		addressesStore.add({ region: 'oem', city: 'test1', street: 'test', building: '1' });
+		addressesStore.add({ region: 'oem', city: 'test2', street: 'test', building: '2' });
 
 		const addresses = get(addressesStore);
 		addressesStore.remove(addresses[0].id);
 
-		const stored = JSON.parse(localStorageMock.getItem('dtek-addresses') || '[]');
-		expect(stored.length).toBe(1);
-		expect(stored[0].city).toBe('test2');
+		const stored = JSON.parse(localStorageMock.getItem('dtek-addresses') || '{"data":[]}');
+		expect(stored.data.length).toBe(1);
+		expect(stored.data[0].city).toBe('test2');
 	});
 
 	it('clears all addresses', () => {
-		addressesStore.add({ city: 'test1', street: 'test', building: '1' });
-		addressesStore.add({ city: 'test2', street: 'test', building: '2' });
+		addressesStore.add({ region: 'oem', city: 'test1', street: 'test', building: '1' });
+		addressesStore.add({ region: 'oem', city: 'test2', street: 'test', building: '2' });
 
 		addressesStore.clear();
 
 		expect(get(addressesStore).length).toBe(0);
-		const stored = localStorageMock.getItem('dtek-addresses');
-		expect(stored).toBe('[]');
+		const stored = JSON.parse(localStorageMock.getItem('dtek-addresses') || '{}');
+		expect(stored.version).toBe(2);
+		expect(stored.data).toEqual([]);
 	});
 
 	it('loads addresses from localStorage on init', () => {
-		// Manually set localStorage
+		// Manually set localStorage with versioned format
 		const testAddresses = [
 			{
 				id: 'test-id-1',
+				region: 'oem',
 				city: 'м. Одеса',
 				street: 'вул. Педагогічна',
 				building: '25/39',
@@ -212,13 +228,15 @@ describe('addressesStore', () => {
 			},
 		];
 
-		localStorageMock.setItem('dtek-addresses', JSON.stringify(testAddresses));
+		const storedData = { version: 2, data: testAddresses };
+		localStorageMock.setItem('dtek-addresses', JSON.stringify(storedData));
 
 		// Re-import to trigger loading
 		// Note: In a real scenario, you'd reload the module, but for this test
 		// we'll just verify the current state matches what we'd expect
-		const stored = JSON.parse(localStorageMock.getItem('dtek-addresses') || '[]');
-		expect(stored).toEqual(testAddresses);
+		const stored = JSON.parse(localStorageMock.getItem('dtek-addresses') || '{"data":[]}');
+		expect(stored.version).toBe(2);
+		expect(stored.data).toEqual(testAddresses);
 	});
 
 	it('handles corrupted localStorage data gracefully', () => {
@@ -229,8 +247,9 @@ describe('addressesStore', () => {
 		expect(get(addressesStore)).toEqual([]);
 	});
 
-	it('handles non-array localStorage data gracefully', () => {
-		localStorageMock.setItem('dtek-addresses', '{"not": "an array"}');
+	it('handles old schema version gracefully', () => {
+		// Old format without version - should be cleared
+		localStorageMock.setItem('dtek-addresses', '[{"city": "test"}]');
 
 		// The store should handle this gracefully and return empty array
 		expect(get(addressesStore)).toEqual([]);
@@ -288,7 +307,8 @@ describe('theme store', () => {
 		theme.set('dark');
 
 		const stored = localStorageMock.getItem('dtek-theme');
-		expect(stored).toBe('dark');
+		// saveToStorage uses JSON.stringify, so string values are stored with quotes
+		expect(stored).toBe('"dark"');
 	});
 
 	it('persists theme to localStorage on toggle', () => {
@@ -296,7 +316,8 @@ describe('theme store', () => {
 		theme.toggle();
 
 		const stored = localStorageMock.getItem('dtek-theme');
-		expect(stored).toBe('dark');
+		// saveToStorage uses JSON.stringify, so string values are stored with quotes
+		expect(stored).toBe('"dark"');
 	});
 
 	it('loads theme from localStorage', () => {
