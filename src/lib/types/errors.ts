@@ -54,9 +54,31 @@ export interface ValidationError extends DtekErrorBase {
 }
 
 /**
+ * Region unavailable error (bot protection, service blocked)
+ */
+export interface RegionUnavailableError extends DtekErrorBase {
+	readonly code: 'REGION_UNAVAILABLE';
+	readonly region?: string;
+}
+
+/**
  * Union type for all DTEK-specific errors
  */
-export type DtekError = NetworkError | ParseError | SessionError | ValidationError;
+export type DtekError =
+	| NetworkError
+	| ParseError
+	| SessionError
+	| ValidationError
+	| RegionUnavailableError;
+
+/**
+ * Field-level error from backend validation
+ */
+export interface FieldError {
+	readonly field: string;
+	readonly code: string;
+	readonly message: string;
+}
 
 // ============================================================================
 // Factory Functions
@@ -125,6 +147,21 @@ export const validationError = (
 	timestamp: Date.now(),
 });
 
+/**
+ * Create a RegionUnavailableError
+ */
+export const regionUnavailableError = (
+	message: string,
+	region?: string,
+	cause?: unknown
+): RegionUnavailableError => ({
+	code: 'REGION_UNAVAILABLE',
+	message,
+	region,
+	cause,
+	timestamp: Date.now(),
+});
+
 // ============================================================================
 // Utility Functions
 // ============================================================================
@@ -142,6 +179,8 @@ export const errorToHttpStatus = (error: DtekError): number => {
 			return error.reason === 'auth_failed' ? 401 : 503;
 		case 'VALIDATION_ERROR':
 			return 400;
+		case 'REGION_UNAVAILABLE':
+			return 503; // Service Unavailable - region blocked by bot protection
 		default:
 			return 500;
 	}
@@ -160,6 +199,8 @@ export const errorToUserMessage = (error: DtekError): string => {
 			return 'Помилка авторизації з сервером ДТЕК';
 		case 'VALIDATION_ERROR':
 			return 'Невірні параметри запиту';
+		case 'REGION_UNAVAILABLE':
+			return 'Регіон тимчасово недоступний';
 		default:
 			return 'Невідома помилка';
 	}
@@ -180,7 +221,47 @@ export const formatErrorForLog = (error: DtekError): string => {
 			return `${base} (reason: ${error.reason}, status: ${error.httpStatus ?? 'N/A'})`;
 		case 'VALIDATION_ERROR':
 			return `${base} (field: ${error.field}, constraint: ${error.constraint})`;
+		case 'REGION_UNAVAILABLE':
+			return `${base} (region: ${error.region ?? 'N/A'})`;
 		default:
 			return base;
 	}
 };
+
+// ============================================================================
+// Client-Side API Errors
+// ============================================================================
+
+/**
+ * Client-side API error codes
+ */
+export type ApiErrorCode =
+	| 'NETWORK_ERROR'
+	| 'VALIDATION_ERROR'
+	| 'SERVER_ERROR'
+	| 'REGION_UNAVAILABLE';
+
+/**
+ * Simplified error type for client-side API calls
+ */
+export interface ApiError {
+	readonly code: ApiErrorCode;
+	readonly message: string;
+	readonly httpStatus?: number;
+	readonly fieldErrors?: FieldError[];
+}
+
+/**
+ * Create a client-side API error
+ */
+export const apiError = (
+	code: ApiErrorCode,
+	message: string,
+	httpStatus?: number,
+	fieldErrors?: FieldError[]
+): ApiError => ({
+	code,
+	message,
+	httpStatus,
+	fieldErrors,
+});
