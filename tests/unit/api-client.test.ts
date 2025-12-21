@@ -188,7 +188,9 @@ describe('fetchBuildingStatuses', () => {
 			street: 'вул. Педагогічна',
 			buildings: {
 				'25/39': {},
-				'27': { emergency: { from: '14:30 17.12.2025', to: '23:00 17.12.2025' } },
+				'27': {
+					outage: { type: 'emergency' as const, from: '14:30 17.12.2025', to: '23:00 17.12.2025' },
+				},
 			},
 			schedules: {},
 			fetchedAt: Date.now(),
@@ -209,8 +211,8 @@ describe('fetchBuildingStatuses', () => {
 		expect(result.ok).toBe(true);
 		if (result.ok) {
 			expect(result.value.buildings).toHaveProperty('25/39');
-			expect(result.value.buildings['25/39'].emergency).toBeUndefined();
-			expect(result.value.buildings['27'].emergency).toBeDefined();
+			expect(result.value.buildings['25/39'].outage).toBeUndefined();
+			expect(result.value.buildings['27'].outage).toBeDefined();
 		}
 	});
 

@@ -180,7 +180,11 @@ describe('addressStatusStore', () => {
 				...mockResponse1,
 				buildings: {
 					'25/39': {
-						emergency: { from: '14:30 17.12.2025', to: '23:00 17.12.2025' },
+						outage: {
+							type: 'emergency' as const,
+							from: '14:30 17.12.2025',
+							to: '23:00 17.12.2025',
+						},
 					},
 				},
 				fetchedAt: Date.now() + 6 * 60 * 1000,
@@ -204,7 +208,7 @@ describe('addressStatusStore', () => {
 			expect(apiClient.fetchBuildingStatuses).toHaveBeenCalledTimes(2);
 
 			const entry = addressStatusStore.getStatus('addr-1');
-			expect(entry?.status?.emergency).toBeDefined();
+			expect(entry?.status?.outage).toBeDefined();
 
 			vi.useRealTimers();
 		});
@@ -238,7 +242,7 @@ describe('addressStatusStore', () => {
 
 			const entry = addressStatusStore.getStatus('addr-1');
 			expect(entry?.error).toBeNull();
-			expect(entry?.status?.emergency).toBeUndefined();
+			expect(entry?.status?.outage).toBeUndefined();
 		});
 	});
 
@@ -259,7 +263,11 @@ describe('addressStatusStore', () => {
 				street: 'вул. Дерибасівська',
 				buildings: {
 					'12': {
-						emergency: { from: '14:30 17.12.2025', to: '23:00 17.12.2025' },
+						outage: {
+							type: 'stabilization' as const,
+							from: '14:30 17.12.2025',
+							to: '23:00 17.12.2025',
+						},
 					},
 				},
 				schedules: {},
@@ -277,8 +285,8 @@ describe('addressStatusStore', () => {
 			const entry1 = addressStatusStore.getStatus('addr-1');
 			const entry2 = addressStatusStore.getStatus('addr-2');
 
-			expect(entry1?.status?.emergency).toBeUndefined();
-			expect(entry2?.status?.emergency).toBeDefined();
+			expect(entry1?.status?.outage).toBeUndefined();
+			expect(entry2?.status?.outage).toBeDefined();
 		});
 
 		it('continues fetching even if one address fails', async () => {
@@ -302,7 +310,7 @@ describe('addressStatusStore', () => {
 			const entry2 = addressStatusStore.getStatus('addr-2');
 
 			expect(entry1?.error).toBe('Failed for address 1');
-			expect(entry2?.status?.emergency).toBeUndefined();
+			expect(entry2?.status?.outage).toBeUndefined();
 		});
 
 		it('handles empty address array', async () => {
@@ -337,7 +345,7 @@ describe('addressStatusStore', () => {
 				street: 'вул. Педагогічна',
 				buildings: {
 					'25/39': {
-						emergency: { from: '14:30 17.12.2025', to: '23:00 17.12.2025' },
+						outage: { type: 'planned' as const, from: '14:30 17.12.2025', to: '23:00 17.12.2025' },
 					},
 				},
 				schedules: {},
@@ -351,7 +359,7 @@ describe('addressStatusStore', () => {
 			expect(apiClient.fetchBuildingStatuses).toHaveBeenCalledTimes(2);
 
 			const entry = addressStatusStore.getStatus('addr-1');
-			expect(entry?.status?.emergency).toBeDefined();
+			expect(entry?.status?.outage).toBeDefined();
 		});
 	});
 

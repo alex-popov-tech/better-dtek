@@ -143,7 +143,7 @@
 			{
 				status: {
 					group: 'GPV2.2',
-					emergency: { from: '08:00 20.12.2025', to: '18:00 20.12.2025' },
+					outage: { type: 'emergency' as const, from: '08:00 20.12.2025', to: '18:00 20.12.2025' },
 				},
 				fetchedAt,
 				loading: false,
