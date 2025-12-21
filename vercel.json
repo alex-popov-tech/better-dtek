@@ -1,5 +1,7 @@
 {
 	"$schema": "https://openapi.vercel.sh/vercel.json",
 	"framework": "sveltekit",
-	"regions": ["fra1"]
+	"regions": ["fra1"],
+	"buildCommand": "npm run build",
+	"installCommand": "npm install"
 }
