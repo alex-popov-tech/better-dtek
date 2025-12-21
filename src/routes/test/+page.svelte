@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { SavedAddress, BuildingStatus } from '$lib/types/address';
+	import type { SavedAddress } from '$lib/types/address';
 	import type { ScheduleRange, ScheduleStatus } from '$lib/types/dtek';
 	import type { StatusCacheEntry } from '$lib/stores/address-status';
 	import AddressCard from '$lib/components/composite/AddressCard.svelte';
@@ -7,20 +7,6 @@
 
 	// Get current day for schedule
 	const today = getUkrainianDayOfWeek();
-
-	// Helper to create schedule range around current time
-	function createCurrentTimeRange(status: ScheduleStatus): ScheduleRange[] {
-		const now = new Date();
-		const currentHour = now.getHours();
-		const currentMinutes = now.getMinutes();
-		const currentFloat = currentHour + currentMinutes / 60;
-
-		// Create a range that includes current time
-		const from = Math.floor(currentFloat);
-		const to = from + 1;
-
-		return [{ from, to, status }];
-	}
 
 	// Helper to create full day schedule for display
 	function createDaySchedule(currentStatus: ScheduleStatus): ScheduleRange[] {
@@ -51,6 +37,7 @@
 	const mockAddresses: SavedAddress[] = [
 		{
 			id: 'test-1',
+			region: 'kem',
 			city: 'м. Тест',
 			street: 'вул. Тестова',
 			building: '1',
@@ -59,6 +46,7 @@
 		},
 		{
 			id: 'test-2',
+			region: 'kem',
 			city: 'м. Тест',
 			street: 'вул. Тестова',
 			building: '2',
@@ -67,6 +55,7 @@
 		},
 		{
 			id: 'test-3',
+			region: 'oem',
 			city: 'м. Тест',
 			street: 'вул. Тестова',
 			building: '3',
@@ -75,6 +64,7 @@
 		},
 		{
 			id: 'test-4',
+			region: 'oem',
 			city: 'м. Тест',
 			street: 'вул. Аварійна',
 			building: '1',
@@ -83,6 +73,7 @@
 		},
 		{
 			id: 'test-5',
+			region: 'dnem',
 			city: 'м. Тест',
 			street: 'вул. Тестова',
 			building: '5',
@@ -91,6 +82,7 @@
 		},
 		{
 			id: 'test-6',
+			region: 'dnem',
 			city: 'м. Тест',
 			street: 'вул. Тестова',
 			building: '6',
@@ -99,6 +91,7 @@
 		},
 		{
 			id: 'test-7',
+			region: 'dem',
 			city: 'м. Тест',
 			street: 'вул. Тестова',
 			building: '7',
@@ -107,6 +100,7 @@
 		},
 		{
 			id: 'test-8',
+			region: 'dem',
 			city: 'м. Тест',
 			street: 'вул. Тестова',
 			building: '8',
@@ -115,6 +109,7 @@
 		},
 		{
 			id: 'test-9',
+			region: 'kem',
 			city: 'м. Тест',
 			street: 'вул. Тестова',
 			building: '9',
@@ -123,6 +118,7 @@
 		},
 		{
 			id: 'test-10',
+			region: 'kem',
 			city: 'м. Тест',
 			street: 'вул. Тестова',
 			building: '10',
@@ -196,6 +192,7 @@
 	<!-- Header -->
 	<div class="flex items-center justify-between">
 		<h2 class="h2 font-bold">Тестова сторінка</h2>
+		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 		<a href="/" class="btn variant-ghost-primary">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"

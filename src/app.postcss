@@ -7,3 +7,99 @@ html,
 body {
 	@apply h-full overflow-hidden;
 }
+
+/* ============================================
+   Form Field State Overrides
+   ============================================ */
+
+/*
+ * Override Skeleton's green (primary-500) focus border with neutral colors.
+ * This prevents confusion between focus state and validation success.
+ */
+.input:focus-within,
+.select:focus-within,
+.input:focus,
+.select:focus {
+	border-color: rgb(var(--color-surface-700)) !important;
+	border-width: 2px;
+}
+
+.dark .input:focus-within,
+.dark .select:focus-within,
+.dark .input:focus,
+.dark .select:focus {
+	border-color: rgb(var(--color-surface-200)) !important;
+	border-width: 2px;
+}
+
+/*
+ * Success state - green border with subtle background tint for clear visibility
+ */
+.input-success,
+.select-success {
+	border-color: rgb(var(--color-success-500)) !important;
+	border-width: 2px !important;
+	background-color: rgba(var(--color-success-500), 0.05) !important;
+	color: inherit !important;
+}
+
+/* Success should persist even when focused */
+.input-success:focus-within,
+.select-success:focus-within,
+.input-success:focus,
+.select-success:focus {
+	border-color: rgb(var(--color-success-500)) !important;
+	border-width: 2px !important;
+	background-color: rgba(var(--color-success-500), 0.05) !important;
+}
+
+/*
+ * Error state - red border with subtle background tint for clear visibility
+ */
+.input-error,
+.select-error {
+	border-color: rgb(var(--color-error-500)) !important;
+	border-width: 2px !important;
+	background-color: rgba(var(--color-error-500), 0.05) !important;
+}
+
+/* Error should persist even when focused */
+.input-error:focus-within,
+.select-error:focus-within,
+.input-error:focus,
+.select-error:focus {
+	border-color: rgb(var(--color-error-500)) !important;
+	border-width: 2px !important;
+	background-color: rgba(var(--color-error-500), 0.05) !important;
+}
+
+/*
+ * Loading state styling
+ */
+.input-loading,
+.select-loading {
+	opacity: 0.7;
+	cursor: wait;
+}
+
+/* ============================================
+   Button State Overrides
+   ============================================ */
+
+/*
+ * Disabled button - improve contrast for visibility
+ */
+.btn:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.btn.variant-filled-primary:disabled {
+	background-color: rgb(var(--color-surface-400)) !important;
+	color: rgb(var(--color-surface-600)) !important;
+}
+
+.dark .btn.variant-filled-primary:disabled {
+	background-color: rgb(var(--color-surface-600)) !important;
+	color: rgb(var(--color-surface-400)) !important;
+}

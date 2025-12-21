@@ -1,9 +1,13 @@
 <script lang="ts">
 	import type { SavedAddress } from '$lib/types/address';
+	import type { PageData } from './$types';
 	import { addressesStore } from '$lib/stores/addresses';
 	import { addressStatusStore, scheduleCacheStore } from '$lib/stores/address-status';
+	import { citiesStore } from '$lib/stores/cities';
 	import AddressList from '$lib/components/composite/AddressList.svelte';
 	import AddressForm from '$lib/components/composite/AddressForm.svelte';
+
+	let { data }: { data: PageData } = $props();
 
 	// Modal state
 	let showModal = $state(false);
@@ -34,6 +38,7 @@
 	function closeModal() {
 		showModal = false;
 		editingAddress = undefined;
+		citiesStore.reset();
 		triggerElement?.focus();
 		triggerElement = null;
 	}
@@ -112,7 +117,6 @@
 />
 
 {#if showModal}
-	<!-- svelte-ignore a11y_no_noninteractive_element_interactions a11y_interactive_supports_focus -->
 	<div
 		class="fixed inset-0 z-50 flex items-center justify-center"
 		role="dialog"
@@ -122,23 +126,27 @@
 		tabindex="-1"
 	>
 		<!-- Backdrop -->
-		<button
-			type="button"
-			class="absolute inset-0 bg-surface-backdrop-token backdrop-blur-sm"
+		<div
+			class="absolute inset-0 bg-surface-backdrop-token backdrop-blur-md cursor-pointer"
 			onclick={handleCancel}
+			onkeydown={(e) => e.key === 'Enter' && handleCancel()}
+			role="button"
+			tabindex="-1"
 			aria-label="Close modal"
-		></button>
+		></div>
 		<!-- Modal content -->
 		<div
 			bind:this={modalElement}
-			class="card p-6 w-full sm:max-w-lg max-h-[80vh] overflow-y-auto relative z-10 shadow-xl ring-1 ring-surface-300-600-token"
+			class="card p-6 w-full sm:max-w-xl max-h-[80vh] overflow-y-auto relative z-10 shadow-xl ring-1 ring-surface-300-600-token"
 			data-testid="address-modal"
 			tabindex="-1"
+			onclick={(e) => e.stopPropagation()}
 		>
 			<h2 id="modal-title" class="h2 font-bold mb-4">
 				{editingAddress ? 'Редагувати адресу' : 'Додати адресу'}
 			</h2>
 			<AddressForm
+				data={{ form: data.form }}
 				address={editingAddress}
 				onsave={handleSave}
 				oncancel={handleCancel}

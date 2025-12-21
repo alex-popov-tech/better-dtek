@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { DtekError } from '$lib/types';
 import { errorToHttpStatus, errorToUserMessage, formatErrorForLog } from '$lib/types';
+import type { RetryError } from '$lib/utils/retry';
 
 /**
  * Handle service error and return appropriate JSON response
@@ -14,4 +15,20 @@ export function handleServiceError(logPrefix: string, error: DtekError) {
 		{ error: error.code, message: errorToUserMessage(error) },
 		{ status: errorToHttpStatus(error) }
 	);
+}
+
+/**
+ * Unwrap RetryError to get the underlying DtekError
+ *
+ * When retry exhausts all attempts, it wraps the last error in RetryError.
+ * This helper extracts the original DtekError for proper error handling.
+ *
+ * @param error - Either a DtekError or RetryError from withRetry
+ * @returns The underlying DtekError
+ */
+export function unwrapRetryError(error: DtekError | RetryError): DtekError {
+	if ('lastError' in error && error.code === 'RETRY_EXHAUSTED') {
+		return error.lastError as DtekError;
+	}
+	return error as DtekError;
 }

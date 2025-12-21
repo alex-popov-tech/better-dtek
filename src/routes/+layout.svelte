@@ -3,20 +3,16 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import AppShell from '$lib/components/layout/AppShell.svelte';
 	import { theme } from '$lib/stores/theme';
-	import { citiesStore } from '$lib/stores/cities';
+	import { initToastStore } from '$lib/stores/toast';
 	import { UI_TEXT } from '$lib/constants/ui-text';
-	import { initializeStores, storePopup } from '@skeletonlabs/skeleton';
+	import { initializeStores, storePopup, Toast, getToastStore } from '@skeletonlabs/skeleton';
 	import { computePosition, autoUpdate, offset, shift, flip, arrow } from '@floating-ui/dom';
 
 	initializeStores();
 	storePopup.set({ computePosition, autoUpdate, offset, shift, flip, arrow });
+	initToastStore(getToastStore());
 
 	let { children } = $props();
-
-	// Pre-fetch cities on app load
-	$effect(() => {
-		citiesStore.prefetch();
-	});
 
 	// Apply theme class to HTML element
 	$effect(() => {
@@ -30,6 +26,13 @@
 	<link rel="icon" href={favicon} />
 	<title>{UI_TEXT.appTitle} - {UI_TEXT.appSubtitle}</title>
 </svelte:head>
+
+<!-- Toast wrapper with high z-index to appear above modals -->
+<div class="fixed top-0 right-0 z-[100] pointer-events-none">
+	<div class="pointer-events-auto">
+		<Toast />
+	</div>
+</div>
 
 <AppShell>
 	{@render children()}
