@@ -2,9 +2,18 @@ import type { DtekBuildingStatus, ScheduleRange } from './dtek.js';
 import type { RegionCode } from '$lib/constants/regions.js';
 
 /**
- * Emergency outage info with time range
+ * Type of active outage from DTEK API
+ * - emergency: "Аварійні ремонтні роботи" (infrastructure failure)
+ * - stabilization: "Стабілізаційне відключення" (grid balancing, scheduled)
+ * - planned: "Планові ремонтні роботи" or unknown types
  */
-export interface EmergencyInfo {
+export type OutageType = 'emergency' | 'stabilization' | 'planned';
+
+/**
+ * Active outage info with type and time range
+ */
+export interface ActiveOutage {
+	type: OutageType;
 	from: string; // "HH:MM DD.MM.YYYY"
 	to: string; // "HH:MM DD.MM.YYYY"
 }
@@ -14,8 +23,10 @@ export interface EmergencyInfo {
  * (returned by /api/status endpoint)
  */
 export interface BuildingStatus {
-	emergency?: EmergencyInfo; // Only present if emergency active
-	group?: string; // Schedule group ID, e.g., "GPV1.2"
+	/** Active outage info (if any outage is active) */
+	outage?: ActiveOutage;
+	/** Schedule group ID, e.g., "GPV1.2" */
+	group?: string;
 }
 
 /**

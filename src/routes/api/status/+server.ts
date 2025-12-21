@@ -1,41 +1,12 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getDtekService } from '$lib/server';
+import { getDtekService, transformBuildingStatus } from '$lib/server';
 import { handleServiceError, unwrapRetryError } from '$lib/server/route-utils';
 import { validateQuery } from '$lib/server/validate';
 import { statusQuerySchema } from '$lib/schemas';
 import type { BuildingStatus } from '$lib/types/address';
-import type { DtekBuildingStatus } from '$lib/types/dtek';
 import type { RegionCode } from '$lib/constants/regions';
 import { withRetry, DEFAULT_RETRY_DELAYS } from '$lib/utils/retry';
-
-/**
- * Extract schedule group ID from sub_type_reason array
- * Looks for pattern like "GPV1.2", "GPV2.1", etc.
- */
-function extractScheduleGroup(subTypeReason: string[] | null): string | undefined {
-	if (!subTypeReason?.length) return undefined;
-	return subTypeReason.find((r) => /^GPV\d+\.\d+$/.test(r));
-}
-
-/**
- * Transform raw DTEK building status to new format
- */
-function transformBuildingStatus(raw: DtekBuildingStatus): BuildingStatus {
-	const result: BuildingStatus = {};
-
-	const group = extractScheduleGroup(raw.sub_type_reason);
-	if (group) result.group = group;
-
-	if (raw.type === '2' && raw.start_date && raw.end_date) {
-		result.emergency = {
-			from: raw.start_date,
-			to: raw.end_date,
-		};
-	}
-
-	return result;
-}
 
 export const GET: RequestHandler = async ({ url }) => {
 	const validation = validateQuery(url, statusQuerySchema);

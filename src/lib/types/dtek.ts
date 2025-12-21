@@ -33,7 +33,13 @@ export type ProcessedSchedules = Record<string, Record<string, ScheduleRange[]>>
  * Raw DTEK API response for getHomeNum - status for a single building
  */
 export interface DtekBuildingStatus {
-	/** "Аварійні ремонтні роботи" | "Планові ремонтні роботи" | null */
+	/**
+	 * Outage type description:
+	 * - "Аварійні ремонтні роботи" = Emergency repair works
+	 * - "Планові ремонтні роботи" = Planned maintenance
+	 * - "Стабілізаційне відключення (Згідно графіку погодинних відключень)" = Stabilization blackout
+	 * - null = No outage
+	 */
 	sub_type: string | null;
 	/** "00:40 13.12.2025" | null */
 	start_date: string | null;
