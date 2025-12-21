@@ -108,8 +108,8 @@
 			{/each}
 		</div>
 
-		<!-- Add button -->
-		<div class="flex justify-center">
+		<!-- Add button (desktop/tablet only) -->
+		<div class="hidden md:flex justify-center">
 			<button type="button" class="btn variant-ghost-primary" onclick={onadd}>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -124,5 +124,26 @@
 				<span>{UI_TEXT.addAddress}</span>
 			</button>
 		</div>
+	{/if}
+
+	<!-- Mobile FAB -->
+	{#if !isEmpty}
+		<button
+			type="button"
+			class="fixed bottom-6 right-6 z-40 btn-icon btn-icon-xl variant-filled-primary shadow-xl md:hidden rounded-full"
+			onclick={onadd}
+			aria-label={UI_TEXT.addAddress}
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke-width="2"
+				stroke="currentColor"
+				class="w-6 h-6"
+			>
+				<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+			</svg>
+		</button>
 	{/if}
 </div>

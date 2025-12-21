@@ -52,10 +52,12 @@
 	const todayRanges = $derived(groupSchedule ? groupSchedule[today] || [] : []);
 
 	// Determine traffic light status
+	// Priority: API outage → Schedule → Default 'on'
 	const trafficLightStatus = $derived.by((): TrafficLightStatus => {
-		// Emergency takes precedence
-		if (status?.emergency) {
-			return 'emergency';
+		// Active outage from API takes precedence
+		if (status?.outage) {
+			// Only emergency gets pulsing animation, others show solid red
+			return status.outage.type === 'emergency' ? 'emergency' : 'off';
 		}
 		// Use schedule to determine status
 		if (todayRanges.length > 0) {
@@ -73,12 +75,12 @@
 	// Format queue number for display (GPV5.2 -> Черга 5.2)
 	const queueDisplay = $derived(groupId ? `Черга ${groupId.replace(/^GPV/, '')}` : null);
 
-	// Format emergency time range for display
+	// Format outage time range for display (works for all outage types)
 	// Same day: "08:00 — 18:00 20.12"
 	// Different days: "08:00 20.12 — 18:00 21.12"
-	const emergencyTimeRange = $derived.by(() => {
-		if (!status?.emergency) return null;
-		const { from, to } = status.emergency;
+	const outageTimeRange = $derived.by(() => {
+		if (!status?.outage) return null;
+		const { from, to } = status.outage;
 		// Parse time and date parts
 		const parseDateTime = (dateStr: string) => {
 			const match = dateStr.match(/^(\d{2}:\d{2})\s+(\d{2}\.\d{2})/);
@@ -144,16 +146,18 @@
 							<div class="text-lg font-medium {statusColorClass}">
 								{TRAFFIC_LIGHT_LABELS[trafficLightStatus]}
 							</div>
-							{#if currentRangeInfo && trafficLightStatus !== 'emergency'}
+							{#if status?.outage}
+								<!-- Active outage from API - show time range -->
 								<div class="text-xs text-surface-600-300-token">
-									{SCHEDULE_INFO_PREFIX}
-									{currentRangeInfo}
+									{#if outageTimeRange}{outageTimeRange}{:else}Відключення{/if}
 									{#if queueDisplay}
 										({queueDisplay}){/if}
 								</div>
-							{:else if trafficLightStatus === 'emergency'}
+							{:else if currentRangeInfo}
+								<!-- Schedule-based status - show schedule info -->
 								<div class="text-xs text-surface-600-300-token">
-									{#if emergencyTimeRange}{emergencyTimeRange}{:else}Аварія на лінії{/if}
+									{SCHEDULE_INFO_PREFIX}
+									{currentRangeInfo}
 									{#if queueDisplay}
 										({queueDisplay}){/if}
 								</div>
