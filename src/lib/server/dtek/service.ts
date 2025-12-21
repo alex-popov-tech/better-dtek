@@ -5,10 +5,11 @@
  * Manages session state (cookies, CSRF, template data) with automatic refresh.
  *
  * Features:
- * - Automatic session refresh (1 hour TTL)
+ * - Automatic session refresh (1 hour TTL) with concurrent refresh lock
  * - Cached status responses (10 minute TTL)
- * - Retry on 401/403 errors
  * - Result-based error handling with rich context
+ *
+ * Note: Retry logic is handled at API route level using withRetry() utility.
  */
 
 import type {
@@ -21,8 +22,9 @@ import type {
 import { ok, err, sessionError, formatErrorForLog } from '$lib/types';
 import { fetchTemplate, fetchBuildingStatuses, CookieJar } from './client';
 import { parseTemplate } from './parser';
-import { statusCache } from './cache';
+import { TtlCache } from './cache';
 import { naturalSort, naturalSortKeys } from '$lib/utils/natural-sort';
+import type { RegionCode } from '$lib/constants/regions';
 
 /**
  * Internal session state
@@ -36,11 +38,23 @@ interface SessionState {
 
 /**
  * DtekService - main service class for DTEK operations
+ * Each instance is region-specific with isolated session and cache
  */
 export class DtekService {
+	private readonly regionCode: RegionCode;
 	private session: SessionState | null = null;
 	private sessionExpiresAt: number = 0;
 	private readonly SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
+	private readonly statusCache: TtlCache<DtekStatusResponse>;
+	private readonly STATUS_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+	/** Promise for in-progress session refresh (prevents concurrent refresh stampede) */
+	private sessionRefreshPromise: Promise<Result<void, DtekError>> | null = null;
+
+	constructor(region: RegionCode) {
+		this.regionCode = region;
+		this.statusCache = new TtlCache<DtekStatusResponse>(this.STATUS_CACHE_TTL_MS);
+		console.log(`[DtekService] Created service instance for region: ${region}`);
+	}
 
 	/**
 	 * Clear session state
@@ -52,25 +66,44 @@ export class DtekService {
 
 	/**
 	 * Ensure valid session exists (with cookies, CSRF, template data)
-	 * Automatically refreshes if expired or missing
+	 * Uses lock to prevent concurrent refresh stampede when multiple
+	 * requests arrive while session is expired.
 	 */
 	private async ensureSession(): Promise<Result<void, DtekError>> {
-		const now = Date.now();
-
-		// Check if session is still valid
-		if (this.session && now < this.sessionExpiresAt) {
+		// Fast path: session is valid
+		if (this.session && Date.now() < this.sessionExpiresAt) {
 			return ok(undefined);
 		}
 
-		// Session expired or missing - refresh
-		console.log('[DtekService] Session expired or missing, refreshing...');
+		// Check if refresh is already in progress - wait for it
+		if (this.sessionRefreshPromise) {
+			console.log(`[DtekService:${this.regionCode}] Waiting for existing session refresh...`);
+			return this.sessionRefreshPromise;
+		}
 
-		// Fetch template page
-		const fetchResult = await fetchTemplate();
+		// Start refresh and store the promise for others to await
+		console.log(`[DtekService:${this.regionCode}] Starting session refresh...`);
+		this.sessionRefreshPromise = this.refreshSessionInternal();
+
+		try {
+			return await this.sessionRefreshPromise;
+		} finally {
+			// Clear the lock after completion (success or failure)
+			this.sessionRefreshPromise = null;
+		}
+	}
+
+	/**
+	 * Internal session refresh logic
+	 * Only called once per refresh cycle (others await the promise)
+	 */
+	private async refreshSessionInternal(): Promise<Result<void, DtekError>> {
+		// Fetch template page for this region
+		const fetchResult = await fetchTemplate(this.regionCode);
 		if (!fetchResult.ok) {
 			this.clearSession();
 			console.error(
-				'[DtekService] Failed to fetch template:',
+				`[DtekService:${this.regionCode}] Failed to fetch template:`,
 				formatErrorForLog(fetchResult.error)
 			);
 			return fetchResult;
@@ -83,13 +116,14 @@ export class DtekService {
 		if (!parseResult.ok) {
 			this.clearSession();
 			console.error(
-				'[DtekService] Failed to parse template:',
+				`[DtekService:${this.regionCode}] Failed to parse template:`,
 				formatErrorForLog(parseResult.error)
 			);
 			return parseResult;
 		}
 
 		const templateData = parseResult.value;
+		const now = Date.now();
 
 		// Store new session
 		this.session = {
@@ -101,10 +135,10 @@ export class DtekService {
 		this.sessionExpiresAt = now + this.SESSION_TTL_MS;
 
 		console.log(
-			`[DtekService] Session refreshed successfully. Expires at: ${new Date(this.sessionExpiresAt).toISOString()}`
+			`[DtekService:${this.regionCode}] Session refreshed successfully. Expires at: ${new Date(this.sessionExpiresAt).toISOString()}`
 		);
 		console.log(
-			`[DtekService] Template data: ${templateData.cities.length} cities, updateFact: ${templateData.updateFact}`
+			`[DtekService:${this.regionCode}] Template data: ${templateData.cities.length} cities, updateFact: ${templateData.updateFact}`
 		);
 
 		return ok(undefined);
@@ -150,87 +184,78 @@ export class DtekService {
 	 * Get building status for a city + street
 	 * Uses cache when available (10 minute TTL)
 	 *
+	 * Note: No retry logic here - retry is handled at API route level
+	 * using withRetry() utility for consistent retry behavior.
+	 *
 	 * @param city - City name (Ukrainian, e.g., "м. Одеса")
 	 * @param street - Street name (Ukrainian, e.g., "вул. Педагогічна")
 	 * @returns Result with DTEK status response with building data
 	 */
 	async getStatus(city: string, street: string): Promise<Result<DtekStatusResponse, DtekError>> {
-		const cacheKey = `status:${city}:${street}`;
+		const cacheKey = `${city}:${street}`;
 
 		// Check cache first
-		const cached = statusCache.get(cacheKey);
+		const cached = this.statusCache.get(cacheKey);
 		if (cached) {
-			console.log(`[DtekService] Cache hit for ${cacheKey}`);
+			console.log(`[DtekService:${this.regionCode}] Cache hit for ${cacheKey}`);
 			return ok(cached);
 		}
 
-		console.log(`[DtekService] Cache miss for ${cacheKey}, fetching from DTEK...`);
+		console.log(
+			`[DtekService:${this.regionCode}] Cache miss for ${cacheKey}, fetching from DTEK...`
+		);
 
-		// Cache miss - fetch from DTEK
-		let retryCount = 0;
-		const maxRetries = 1;
-
-		while (retryCount <= maxRetries) {
-			const sessionResult = await this.ensureSession();
-			if (!sessionResult.ok) {
-				return sessionResult;
-			}
-
-			if (!this.session) {
-				return err(sessionError('missing', 'Session is not available after refresh'));
-			}
-
-			// Fetch building statuses
-			const fetchResult = await fetchBuildingStatuses({
-				city,
-				street,
-				updateFact: this.session.updateFact,
-				csrf: this.session.csrf,
-				cookies: this.session.cookies,
-			});
-
-			if (!fetchResult.ok) {
-				// Check if it's an auth error (401/403)
-				const isAuthError =
-					fetchResult.error.code === 'NETWORK_ERROR' &&
-					(fetchResult.error.httpStatus === 401 || fetchResult.error.httpStatus === 403);
-
-				if (isAuthError && retryCount < maxRetries) {
-					console.warn(
-						`[DtekService] Auth error detected, clearing session and retrying... (attempt ${retryCount + 1}/${maxRetries})`
-					);
-
-					// Clear session and retry
-					this.clearSession();
-					retryCount++;
-					continue;
-				}
-
-				// Non-auth error or max retries reached
-				console.error(
-					`[DtekService] Failed to fetch status for ${city} / ${street}:`,
-					formatErrorForLog(fetchResult.error)
-				);
-
-				return fetchResult;
-			}
-
-			// Sort building keys naturally and cache the result
-			const sortedResponse: DtekStatusResponse = {
-				...fetchResult.value,
-				data: naturalSortKeys(fetchResult.value.data),
-			};
-			statusCache.set(cacheKey, sortedResponse);
-
-			console.log(
-				`[DtekService] Successfully fetched status for ${city} / ${street}. Buildings: ${Object.keys(sortedResponse.data).length}`
-			);
-
-			return ok(sortedResponse);
+		// Ensure session is valid
+		const sessionResult = await this.ensureSession();
+		if (!sessionResult.ok) {
+			return sessionResult;
 		}
 
-		// Should never reach here, but TypeScript needs it
-		return err(sessionError('refresh_failed', 'Failed to fetch status after session retry'));
+		if (!this.session) {
+			return err(sessionError('missing', 'Session is not available after refresh'));
+		}
+
+		// Fetch building statuses
+		const fetchResult = await fetchBuildingStatuses({
+			region: this.regionCode,
+			city,
+			street,
+			updateFact: this.session.updateFact,
+			csrf: this.session.csrf,
+			cookies: this.session.cookies,
+		});
+
+		if (!fetchResult.ok) {
+			// Clear session on auth errors so next retry attempt gets fresh session
+			const isAuthError =
+				fetchResult.error.code === 'NETWORK_ERROR' &&
+				(fetchResult.error.httpStatus === 401 || fetchResult.error.httpStatus === 403);
+
+			if (isAuthError) {
+				console.warn(`[DtekService:${this.regionCode}] Auth error, clearing session`);
+				this.clearSession();
+			}
+
+			console.error(
+				`[DtekService:${this.regionCode}] Failed to fetch status for ${city} / ${street}:`,
+				formatErrorForLog(fetchResult.error)
+			);
+
+			return fetchResult;
+		}
+
+		// Sort building keys naturally and cache the result
+		const sortedResponse: DtekStatusResponse = {
+			...fetchResult.value,
+			data: naturalSortKeys(fetchResult.value.data),
+		};
+		this.statusCache.set(cacheKey, sortedResponse);
+
+		console.log(
+			`[DtekService:${this.regionCode}] Successfully fetched status for ${city} / ${street}. Buildings: ${Object.keys(sortedResponse.data).length}`
+		);
+
+		return ok(sortedResponse);
 	}
 
 	/**
@@ -261,15 +286,23 @@ export class DtekService {
 	 * Clears current session and forces a new fetch on next request
 	 */
 	async refreshSession(): Promise<Result<void, DtekError>> {
-		console.log('[DtekService] Manual session refresh requested');
+		console.log(`[DtekService:${this.regionCode}] Manual session refresh requested`);
 		this.clearSession();
 		return this.ensureSession();
+	}
+
+	/**
+	 * Get the region code for this service instance
+	 */
+	getRegion(): RegionCode {
+		return this.regionCode;
 	}
 
 	/**
 	 * Get service statistics (for debugging)
 	 */
 	getStats(): {
+		region: RegionCode;
 		sessionValid: boolean;
 		sessionExpiresIn: number | null;
 		cacheStats: { size: number; keys: string[] };
@@ -279,23 +312,40 @@ export class DtekService {
 		const sessionExpiresIn = sessionValid ? this.sessionExpiresAt - now : null;
 
 		return {
+			region: this.regionCode,
 			sessionValid,
 			sessionExpiresIn,
-			cacheStats: statusCache.getStats(),
+			cacheStats: this.statusCache.getStats(),
 		};
 	}
 }
 
 /**
- * Create a new DtekService instance
+ * Create a new DtekService instance for a specific region
  * Useful for testing with isolated session state
  */
-export function createDtekService(): DtekService {
-	return new DtekService();
+export function createDtekService(region: RegionCode): DtekService {
+	return new DtekService(region);
 }
 
 /**
- * Singleton instance of DtekService
- * Use this in your application code
+ * Service registry for per-region instances
+ * Lazily creates service instances on first access
  */
-export const dtekService = createDtekService();
+const serviceRegistry = new Map<RegionCode, DtekService>();
+
+/**
+ * Get a DtekService instance for a specific region
+ * Creates a new instance if one doesn't exist for that region
+ *
+ * @param region - Region code (e.g., 'kem', 'oem', 'dnem', 'dem')
+ * @returns DtekService instance for the specified region
+ */
+export function getDtekService(region: RegionCode): DtekService {
+	let service = serviceRegistry.get(region);
+	if (!service) {
+		service = createDtekService(region);
+		serviceRegistry.set(region, service);
+	}
+	return service;
+}
