@@ -22,16 +22,43 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run lint:fix` - ESLint with auto-fix
 - `npm run format` - Prettier formatting
 
+## Issue Tracking
+
+This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get started.
+
+### Quick Reference
+
+- `bd ready` - Find available work
+- `bd show <id>` - View issue details
+- `bd update <id> --status in_progress` - Claim work
+- `bd close <id>` - Complete work
+- `bd sync` - Sync with git
+
+### Session Completion
+
+When ending a work session, complete ALL steps:
+
+1. **File issues** - Create issues for remaining/follow-up work
+2. **Run quality gates** - Tests, linters, builds (if code changed)
+3. **Update issues** - Close finished work, update in-progress items
+4. **Clean up** - Clear stashes, prune remote branches
+5. **Verify** - All changes committed
+6. **Hand off** - Provide context for next session
+
 ## Architecture
 
 This is a SvelteKit application for tracking DTEK (Ukrainian power company) power outages. Users save addresses and see real-time outage status with traffic light indicators.
 
 ### Server-Side DTEK Integration (`src/lib/server/dtek/`)
 
-- **DtekService** - Singleton facade managing session (1hr TTL), caching (10min), and retry logic
-- **client.ts** - HTTP client with cookie jar for DTEK API
-- **parser.ts** - Cheerio/Acorn parsing of HTML and embedded JavaScript
-- **cache.ts** - Simple TTL cache
+- **DtekService** - Facade reading from Vercel KV (data refreshed by GitHub Action every 20min)
+- **client.ts** - HTTP client with cookie jar for real-time building status
+- **cache.ts** - Simple TTL cache for status responses
+
+### Data Pipeline (`scripts/`, `.github/workflows/`)
+
+- **refresh-dtek-data.ts** - Playwright script extracts DTEK data, stores in Vercel KV
+- **refresh-dtek-data.yml** - GitHub Action runs extraction every 20 minutes
 
 ### Client-Side Stores (`src/lib/stores/`)
 
@@ -67,6 +94,7 @@ All UI text is in Ukrainian. Constants are in `src/lib/constants/ui-text.ts`.
 
 - SvelteKit + Svelte 5
 - Tailwind CSS + Skeleton Labs UI
-- Cheerio (HTML parsing) + Acorn (JS AST parsing)
+- Vercel KV (Redis) for cached DTEK data
+- Playwright (data extraction in GitHub Actions)
 - Vitest
 - Deployed to Vercel (Frankfurt region)
