@@ -361,7 +361,7 @@ function compressDaySchedule(dayData: Record<string, ScheduleStatus>): ScheduleR
  * @param rawPreset - Raw preset data from DisconSchedule.preset
  * @returns Processed schedules grouped by groupId and day
  */
-function processPresetSchedules(rawPreset: DtekRawPreset): ProcessedSchedules {
+export function processPresetSchedules(rawPreset: DtekRawPreset): ProcessedSchedules {
 	const result: ProcessedSchedules = {};
 
 	for (const [groupId, weekData] of Object.entries(rawPreset.data)) {

@@ -41,3 +41,15 @@ Thumbs.db
 # Logs and temp files
 *.log
 logs/
+
+# Script outputs
+scripts/output/
+
+# Beads (bd) issue tracker
+.beads/
+
+# Playwright MCP screenshots
+.playwright-mcp/
+
+# Agent instructions (local tooling)
+AGENTS.md

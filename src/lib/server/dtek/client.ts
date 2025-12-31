@@ -39,6 +39,24 @@ export class CookieJar {
 	}
 
 	/**
+	 * Create CookieJar from semicolon-separated cookie string
+	 * @param cookieString - Cookies in "name=val; name2=val2" format
+	 */
+	static fromString(cookieString: string): CookieJar {
+		const jar = new CookieJar();
+		if (!cookieString) return jar;
+
+		for (const pair of cookieString.split('; ')) {
+			const eqIndex = pair.indexOf('=');
+			if (eqIndex <= 0) continue;
+			const name = pair.slice(0, eqIndex).trim();
+			const value = pair.slice(eqIndex + 1).trim();
+			jar.cookies.set(name, value);
+		}
+		return jar;
+	}
+
+	/**
 	 * Parse and absorb Set-Cookie headers
 	 * @param setCookieHeaders - Array of Set-Cookie header values
 	 */

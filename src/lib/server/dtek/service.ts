@@ -1,54 +1,43 @@
 /**
  * DtekService facade - high-level API for DTEK integration
  *
- * Combines parser, client, and cache modules into a unified service.
- * Manages session state (cookies, CSRF, template data) with automatic refresh.
+ * Reads pre-cached data from Vercel KV (populated by GitHub Action every 10min).
+ * Only getStatus() still makes real-time HTTP calls to DTEK for building status.
  *
  * Features:
- * - Automatic session refresh (1 hour TTL) with concurrent refresh lock
- * - Cached status responses (10 minute TTL)
+ * - getCities/getStreets/getSchedules: Read-only from KV cache
+ * - getStatus: HTTP to DTEK using CSRF/cookies from KV, with 10min local cache
  * - Result-based error handling with rich context
- *
- * Note: Retry logic is handled at API route level using withRetry() utility.
  */
 
 import type {
-	DtekTemplateData,
 	DtekStatusResponse,
 	Result,
 	DtekError,
 	ProcessedSchedules,
+	DtekRawPreset,
 } from '$lib/types';
-import { ok, err, sessionError, formatErrorForLog } from '$lib/types';
-import { fetchTemplate, fetchBuildingStatuses, CookieJar } from './client';
-import { parseTemplate } from './parser';
+import { ok, formatErrorForLog } from '$lib/types';
+import { fetchBuildingStatuses, CookieJar } from './client';
+import { processPresetSchedules } from './parser';
 import { TtlCache } from './cache';
 import { naturalSort, naturalSortKeys } from '$lib/utils/natural-sort';
 import type { RegionCode } from '$lib/constants/regions';
-
-/**
- * Internal session state
- */
-interface SessionState {
-	cookies: CookieJar;
-	csrf: string;
-	updateFact: string;
-	templateData: DtekTemplateData;
-}
+import { getDtekRegionData } from '$lib/server/kv/client';
+import type { DtekCachedRegion } from '$lib/types/dtek-cache';
 
 /**
  * DtekService - main service class for DTEK operations
- * Each instance is region-specific with isolated session and cache
+ * Each instance is region-specific with isolated cache
  */
 export class DtekService {
 	private readonly regionCode: RegionCode;
-	private session: SessionState | null = null;
-	private sessionExpiresAt: number = 0;
-	private readonly SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
 	private readonly statusCache: TtlCache<DtekStatusResponse>;
 	private readonly STATUS_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
-	/** Promise for in-progress session refresh (prevents concurrent refresh stampede) */
-	private sessionRefreshPromise: Promise<Result<void, DtekError>> | null = null;
+
+	// Cache processed schedules in memory (no need to re-process on every call)
+	private schedulesCache: ProcessedSchedules | null = null;
+	private schedulesCacheExtractedAt: string | null = null;
 
 	constructor(region: RegionCode) {
 		this.regionCode = region;
@@ -57,91 +46,17 @@ export class DtekService {
 	}
 
 	/**
-	 * Clear session state
+	 * Get region data from KV cache
 	 */
-	private clearSession(): void {
-		this.session = null;
-		this.sessionExpiresAt = 0;
-	}
-
-	/**
-	 * Ensure valid session exists (with cookies, CSRF, template data)
-	 * Uses lock to prevent concurrent refresh stampede when multiple
-	 * requests arrive while session is expired.
-	 */
-	private async ensureSession(): Promise<Result<void, DtekError>> {
-		// Fast path: session is valid
-		if (this.session && Date.now() < this.sessionExpiresAt) {
-			return ok(undefined);
-		}
-
-		// Check if refresh is already in progress - wait for it
-		if (this.sessionRefreshPromise) {
-			console.log(`[DtekService:${this.regionCode}] Waiting for existing session refresh...`);
-			return this.sessionRefreshPromise;
-		}
-
-		// Start refresh and store the promise for others to await
-		console.log(`[DtekService:${this.regionCode}] Starting session refresh...`);
-		this.sessionRefreshPromise = this.refreshSessionInternal();
-
-		try {
-			return await this.sessionRefreshPromise;
-		} finally {
-			// Clear the lock after completion (success or failure)
-			this.sessionRefreshPromise = null;
-		}
-	}
-
-	/**
-	 * Internal session refresh logic
-	 * Only called once per refresh cycle (others await the promise)
-	 */
-	private async refreshSessionInternal(): Promise<Result<void, DtekError>> {
-		// Fetch template page for this region
-		const fetchResult = await fetchTemplate(this.regionCode);
-		if (!fetchResult.ok) {
-			this.clearSession();
+	private async getRegionData(): Promise<Result<DtekCachedRegion, DtekError>> {
+		const result = await getDtekRegionData(this.regionCode);
+		if (!result.ok) {
 			console.error(
-				`[DtekService:${this.regionCode}] Failed to fetch template:`,
-				formatErrorForLog(fetchResult.error)
+				`[DtekService:${this.regionCode}] KV read failed:`,
+				formatErrorForLog(result.error)
 			);
-			return fetchResult;
 		}
-
-		const { html, cookies } = fetchResult.value;
-
-		// Parse template data
-		const parseResult = parseTemplate(html);
-		if (!parseResult.ok) {
-			this.clearSession();
-			console.error(
-				`[DtekService:${this.regionCode}] Failed to parse template:`,
-				formatErrorForLog(parseResult.error)
-			);
-			return parseResult;
-		}
-
-		const templateData = parseResult.value;
-		const now = Date.now();
-
-		// Store new session
-		this.session = {
-			cookies,
-			csrf: templateData.csrf,
-			updateFact: templateData.updateFact,
-			templateData,
-		};
-		this.sessionExpiresAt = now + this.SESSION_TTL_MS;
-
-		console.log(
-			`[DtekService:${this.regionCode}] Session refreshed successfully. Expires at: ${new Date(this.sessionExpiresAt).toISOString()}`
-		);
-		console.log(
-			`[DtekService:${this.regionCode}] Template data: ${templateData.cities.length} cities, updateFact: ${templateData.updateFact}`
-		);
-
-		return ok(undefined);
+		return result;
 	}
 
 	/**
@@ -149,16 +64,10 @@ export class DtekService {
 	 * @returns Result with array of city names (Ukrainian), naturally sorted
 	 */
 	async getCities(): Promise<Result<string[], DtekError>> {
-		const sessionResult = await this.ensureSession();
-		if (!sessionResult.ok) {
-			return sessionResult;
-		}
+		const regionResult = await this.getRegionData();
+		if (!regionResult.ok) return regionResult;
 
-		if (!this.session) {
-			return err(sessionError('missing', 'Session is not available after refresh'));
-		}
-
-		return ok(naturalSort(this.session.templateData.cities));
+		return ok(naturalSort(regionResult.value.cities));
 	}
 
 	/**
@@ -167,25 +76,17 @@ export class DtekService {
 	 * @returns Result with array of street names for the city (naturally sorted)
 	 */
 	async getStreets(city: string): Promise<Result<string[], DtekError>> {
-		const sessionResult = await this.ensureSession();
-		if (!sessionResult.ok) {
-			return sessionResult;
-		}
+		const regionResult = await this.getRegionData();
+		if (!regionResult.ok) return regionResult;
 
-		if (!this.session) {
-			return err(sessionError('missing', 'Session is not available after refresh'));
-		}
-
-		const streets = this.session.templateData.streetsByCity[city] || [];
+		const streets = regionResult.value.streetsByCity[city] || [];
 		return ok(naturalSort(streets));
 	}
 
 	/**
 	 * Get building status for a city + street
-	 * Uses cache when available (10 minute TTL)
-	 *
-	 * Note: No retry logic here - retry is handled at API route level
-	 * using withRetry() utility for consistent retry behavior.
+	 * Uses local cache when available (10 minute TTL)
+	 * Uses CSRF/cookies from KV for authentication
 	 *
 	 * @param city - City name (Ukrainian, e.g., "м. Одеса")
 	 * @param street - Street name (Ukrainian, e.g., "вул. Педагогічна")
@@ -205,42 +106,30 @@ export class DtekService {
 			`[DtekService:${this.regionCode}] Cache miss for ${cacheKey}, fetching from DTEK...`
 		);
 
-		// Ensure session is valid
-		const sessionResult = await this.ensureSession();
-		if (!sessionResult.ok) {
-			return sessionResult;
-		}
+		// Get credentials from KV
+		const regionResult = await this.getRegionData();
+		if (!regionResult.ok) return regionResult;
 
-		if (!this.session) {
-			return err(sessionError('missing', 'Session is not available after refresh'));
-		}
+		const regionData = regionResult.value;
 
-		// Fetch building statuses
+		// Build CookieJar from stored cookie string
+		const cookies = CookieJar.fromString(regionData.cookies);
+
+		// Fetch building statuses using stored credentials
 		const fetchResult = await fetchBuildingStatuses({
 			region: this.regionCode,
 			city,
 			street,
-			updateFact: this.session.updateFact,
-			csrf: this.session.csrf,
-			cookies: this.session.cookies,
+			updateFact: regionData.updateFact,
+			csrf: regionData.csrf,
+			cookies,
 		});
 
 		if (!fetchResult.ok) {
-			// Clear session on auth errors so next retry attempt gets fresh session
-			const isAuthError =
-				fetchResult.error.code === 'NETWORK_ERROR' &&
-				(fetchResult.error.httpStatus === 401 || fetchResult.error.httpStatus === 403);
-
-			if (isAuthError) {
-				console.warn(`[DtekService:${this.regionCode}] Auth error, clearing session`);
-				this.clearSession();
-			}
-
 			console.error(
 				`[DtekService:${this.regionCode}] Failed to fetch status for ${city} / ${street}:`,
 				formatErrorForLog(fetchResult.error)
 			);
-
 			return fetchResult;
 		}
 
@@ -264,31 +153,34 @@ export class DtekService {
 	 * @returns Result with filtered schedules for the specified groups
 	 */
 	async getSchedules(groupIds: string[]): Promise<Result<ProcessedSchedules, DtekError>> {
-		const sessionResult = await this.ensureSession();
-		if (!sessionResult.ok) return sessionResult;
+		const regionResult = await this.getRegionData();
+		if (!regionResult.ok) return regionResult;
 
-		if (!this.session?.templateData.schedules) {
-			return ok({});
+		const regionData = regionResult.value;
+
+		// Check if we need to re-process schedules (new data from KV)
+		if (
+			!this.schedulesCache ||
+			this.schedulesCacheExtractedAt !== regionData.extractedAt
+		) {
+			// Process raw preset data from KV
+			if (regionData.presetData) {
+				this.schedulesCache = processPresetSchedules(regionData.presetData as DtekRawPreset);
+			} else {
+				this.schedulesCache = {};
+			}
+			this.schedulesCacheExtractedAt = regionData.extractedAt;
 		}
 
+		// Filter to requested groups
 		const filtered: ProcessedSchedules = {};
 		for (const id of groupIds) {
-			if (this.session.templateData.schedules[id]) {
-				filtered[id] = this.session.templateData.schedules[id];
+			if (this.schedulesCache[id]) {
+				filtered[id] = this.schedulesCache[id];
 			}
 		}
 
 		return ok(filtered);
-	}
-
-	/**
-	 * Force refresh session (for debugging/admin purposes)
-	 * Clears current session and forces a new fetch on next request
-	 */
-	async refreshSession(): Promise<Result<void, DtekError>> {
-		console.log(`[DtekService:${this.regionCode}] Manual session refresh requested`);
-		this.clearSession();
-		return this.ensureSession();
 	}
 
 	/**
@@ -303,18 +195,10 @@ export class DtekService {
 	 */
 	getStats(): {
 		region: RegionCode;
-		sessionValid: boolean;
-		sessionExpiresIn: number | null;
 		cacheStats: { size: number; keys: string[] };
 	} {
-		const now = Date.now();
-		const sessionValid = this.session !== null && now < this.sessionExpiresAt;
-		const sessionExpiresIn = sessionValid ? this.sessionExpiresAt - now : null;
-
 		return {
 			region: this.regionCode,
-			sessionValid,
-			sessionExpiresIn,
 			cacheStats: this.statusCache.getStats(),
 		};
 	}

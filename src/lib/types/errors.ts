@@ -62,6 +62,13 @@ export interface RegionUnavailableError extends DtekErrorBase {
 }
 
 /**
+ * KV/Redis cache errors
+ */
+export interface KvError extends DtekErrorBase {
+	readonly code: 'KV_ERROR';
+}
+
+/**
  * Union type for all DTEK-specific errors
  */
 export type DtekError =
@@ -69,7 +76,8 @@ export type DtekError =
 	| ParseError
 	| SessionError
 	| ValidationError
-	| RegionUnavailableError;
+	| RegionUnavailableError
+	| KvError;
 
 /**
  * Field-level error from backend validation
@@ -162,6 +170,16 @@ export const regionUnavailableError = (
 	timestamp: Date.now(),
 });
 
+/**
+ * Create a KvError
+ */
+export const kvError = (message: string, cause?: unknown): KvError => ({
+	code: 'KV_ERROR',
+	message,
+	cause,
+	timestamp: Date.now(),
+});
+
 // ============================================================================
 // Utility Functions
 // ============================================================================
@@ -181,6 +199,8 @@ export const errorToHttpStatus = (error: DtekError): number => {
 			return 400;
 		case 'REGION_UNAVAILABLE':
 			return 503; // Service Unavailable - region blocked by bot protection
+		case 'KV_ERROR':
+			return 503; // Service Unavailable - cache not populated
 		default:
 			return 500;
 	}
@@ -201,6 +221,8 @@ export const errorToUserMessage = (error: DtekError): string => {
 			return 'Невірні параметри запиту';
 		case 'REGION_UNAVAILABLE':
 			return 'Регіон тимчасово недоступний';
+		case 'KV_ERROR':
+			return 'Дані тимчасово недоступні';
 		default:
 			return 'Невідома помилка';
 	}
@@ -223,6 +245,8 @@ export const formatErrorForLog = (error: DtekError): string => {
 			return `${base} (field: ${error.field}, constraint: ${error.constraint})`;
 		case 'REGION_UNAVAILABLE':
 			return `${base} (region: ${error.region ?? 'N/A'})`;
+		case 'KV_ERROR':
+			return base;
 		default:
 			return base;
 	}
