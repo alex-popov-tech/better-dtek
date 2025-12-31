@@ -1,5 +1,3 @@
-import type { DtekTemplateData, DtekStatusResponse } from '$lib/types';
-
 /**
  * Internal cache entry structure
  */
@@ -94,15 +92,3 @@ export class TtlCache<T> {
 		};
 	}
 }
-
-/**
- * Pre-configured cache for DTEK template data
- * TTL: 1 hour (cookies/CSRF need refresh)
- */
-export const templateCache = new TtlCache<DtekTemplateData>(60 * 60 * 1000);
-
-/**
- * Pre-configured cache for DTEK status responses
- * TTL: 10 minutes (balance freshness vs load)
- */
-export const statusCache = new TtlCache<DtekStatusResponse>(10 * 60 * 1000);

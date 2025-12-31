@@ -16,15 +16,95 @@ import type {
 	DtekError,
 	ProcessedSchedules,
 	DtekRawPreset,
+	ScheduleStatus,
+	ScheduleRange,
 } from '$lib/types';
 import { ok, formatErrorForLog } from '$lib/types';
 import { fetchBuildingStatuses, CookieJar } from './client';
-import { processPresetSchedules } from './parser';
 import { TtlCache } from './cache';
 import { naturalSort, naturalSortKeys } from '$lib/utils/natural-sort';
 import type { RegionCode } from '$lib/constants/regions';
 import { getDtekRegionData } from '$lib/server/kv/client';
 import type { DtekCachedRegion } from '$lib/types/dtek-cache';
+
+// ============================================================================
+// Schedule Processing Utilities
+// ============================================================================
+
+type NormalizedStatus = 'yes' | 'maybe' | 'no';
+
+function normalizeStatus(status: ScheduleStatus): NormalizedStatus {
+	if (status === 'yes') return 'yes';
+	if (status === 'maybe' || status === 'mfirst' || status === 'msecond') return 'maybe';
+	return 'no';
+}
+
+function addRange(
+	ranges: ScheduleRange[],
+	from: number,
+	to: number,
+	status: NormalizedStatus
+): void {
+	const last = ranges[ranges.length - 1];
+	if (last && last.to === from && last.status === status) {
+		last.to = to;
+	} else {
+		ranges.push({ from, to, status });
+	}
+}
+
+/**
+ * Compress hourly schedule to ranges with normalized statuses
+ * Hour key mapping: "1" → 00:00-01:00, "10" → 09:00-10:00
+ */
+function compressDaySchedule(dayData: Record<string, ScheduleStatus>): ScheduleRange[] {
+	const ranges: ScheduleRange[] = [];
+
+	for (let hourKey = 1; hourKey <= 24; hourKey++) {
+		const rawStatus = dayData[String(hourKey)];
+		if (!rawStatus) continue;
+
+		const hourStart = hourKey - 1;
+
+		if (rawStatus === 'mfirst') {
+			addRange(ranges, hourStart, hourStart + 0.5, 'maybe');
+			addRange(ranges, hourStart + 0.5, hourStart + 1, 'yes');
+		} else if (rawStatus === 'msecond') {
+			addRange(ranges, hourStart, hourStart + 0.5, 'yes');
+			addRange(ranges, hourStart + 0.5, hourStart + 1, 'maybe');
+		} else if (rawStatus === 'first') {
+			addRange(ranges, hourStart, hourStart + 0.5, 'no');
+			addRange(ranges, hourStart + 0.5, hourStart + 1, 'yes');
+		} else if (rawStatus === 'second') {
+			addRange(ranges, hourStart, hourStart + 0.5, 'yes');
+			addRange(ranges, hourStart + 0.5, hourStart + 1, 'no');
+		} else {
+			addRange(ranges, hourStart, hourStart + 1, normalizeStatus(rawStatus));
+		}
+	}
+
+	return ranges;
+}
+
+/**
+ * Process raw preset schedules into compressed format
+ */
+function processPresetSchedules(rawPreset: DtekRawPreset): ProcessedSchedules {
+	const result: ProcessedSchedules = {};
+
+	for (const [groupId, weekData] of Object.entries(rawPreset.data)) {
+		result[groupId] = {};
+		for (const [dayNum, dayData] of Object.entries(weekData)) {
+			result[groupId][dayNum] = compressDaySchedule(dayData);
+		}
+	}
+
+	return result;
+}
+
+// ============================================================================
+// DtekService
+// ============================================================================
 
 /**
  * DtekService - main service class for DTEK operations
@@ -159,10 +239,7 @@ export class DtekService {
 		const regionData = regionResult.value;
 
 		// Check if we need to re-process schedules (new data from KV)
-		if (
-			!this.schedulesCache ||
-			this.schedulesCacheExtractedAt !== regionData.extractedAt
-		) {
+		if (!this.schedulesCache || this.schedulesCacheExtractedAt !== regionData.extractedAt) {
 			// Process raw preset data from KV
 			if (regionData.presetData) {
 				this.schedulesCache = processPresetSchedules(regionData.presetData as DtekRawPreset);

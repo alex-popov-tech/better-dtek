@@ -12,6 +12,7 @@ import type { Result } from '$lib/types';
 import { ok, err, kvError } from '$lib/types';
 import { dtekDataKey, type DtekCachedRegion } from '$lib/types/dtek-cache';
 import type { RegionCode } from '$lib/constants/regions';
+import { getRedisEnv } from '$lib/server/env';
 
 // Lazy singleton Redis client
 let redis: Redis | null = null;
@@ -22,12 +23,9 @@ let redis: Redis | null = null;
 function getRedis(): Redis {
 	if (redis) return redis;
 
-	const url = process.env.REDIS_URL;
-	if (!url) {
-		throw new Error('REDIS_URL environment variable not set');
-	}
+	const { REDIS_URL } = getRedisEnv();
 
-	redis = new Redis(url, {
+	redis = new Redis(REDIS_URL, {
 		maxRetriesPerRequest: 3,
 		lazyConnect: true,
 		connectTimeout: 5000,
@@ -57,6 +55,8 @@ export async function getDtekRegionData(
 		const data: DtekCachedRegion = JSON.parse(raw);
 		return ok(data);
 	} catch (cause) {
+		// Log the actual error for debugging
+		console.error(`[KV Client] Error reading ${region}:`, cause);
 		const message =
 			cause instanceof Error && cause.message.includes('REDIS_URL')
 				? cause.message
