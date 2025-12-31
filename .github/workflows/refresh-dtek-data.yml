@@ -1,0 +1,64 @@
+name: Refresh DTEK Data
+
+on:
+  schedule:
+    # Every 20 minutes (session cookies valid for 30 min)
+    - cron: '*/20 * * * *'
+  workflow_dispatch:
+    # Manual trigger with optional region selection
+    inputs:
+      region:
+        description: 'Specific region to refresh (leave empty for all)'
+        required: false
+        type: choice
+        options:
+          - ''
+          - kem
+          - oem
+          - dnem
+          - dem
+
+concurrency:
+  group: dtek-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Refresh DTEK Data
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium
+
+      - name: Refresh DTEK data
+        run: |
+          if [ -n "${{ github.event.inputs.region }}" ]; then
+            npx tsx scripts/refresh-dtek-data.ts --region=${{ github.event.inputs.region }}
+          else
+            npx tsx scripts/refresh-dtek-data.ts
+          fi
+        env:
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+
+      - name: Report status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "::notice::DTEK data refresh completed successfully"
+          else
+            echo "::error::DTEK data refresh failed"
+          fi
