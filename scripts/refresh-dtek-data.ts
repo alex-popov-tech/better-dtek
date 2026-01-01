@@ -12,15 +12,16 @@
  */
 
 import 'dotenv/config';
-import { mkdirSync } from 'fs';
+import { mkdirSync, writeFileSync } from 'fs';
 import { z } from 'zod';
 import { chromium, type BrowserContext } from 'playwright';
 import Redis from 'ioredis';
 
-// Artifacts directory for screenshots and videos
+// Artifacts directory for screenshots, videos, and data
 const ARTIFACTS_DIR = 'artifacts';
 const SCREENSHOTS_DIR = `${ARTIFACTS_DIR}/screenshots`;
 const VIDEOS_DIR = `${ARTIFACTS_DIR}/videos`;
+const DATA_FILE = `${ARTIFACTS_DIR}/extracted-data.json`;
 import {
 	DTEK_REGIONS,
 	DTEK_CACHE_TTL,
@@ -68,7 +69,19 @@ function extractJson(text: string, marker: string, open: string, close: string):
 	if (start === -1) return null;
 	const eq = text.indexOf('=', start);
 	if (eq === -1) return null;
-	const jsonStart = text.indexOf(open, eq);
+
+	// Find the open bracket - must be immediately after = (with optional whitespace)
+	let jsonStart = -1;
+	for (let i = eq + 1; i < text.length; i++) {
+		const ch = text[i];
+		if (ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r') continue;
+		if (ch === open) {
+			jsonStart = i;
+			break;
+		}
+		// Found a non-whitespace char that isn't the expected opener - wrong format
+		return null;
+	}
 	if (jsonStart === -1) return null;
 
 	let depth = 0;
@@ -88,9 +101,10 @@ function extractJson(text: string, marker: string, open: string, close: string):
 /** Parse DisconSchedule data from page HTML */
 function parseDisconSchedule(html: string) {
 	return {
+		// Try object format first (multi-city), then array (single-city like KEM)
 		streets:
-			extractJson(html, 'DisconSchedule.streets', '[', ']') ??
-			extractJson(html, 'DisconSchedule.streets', '{', '}'),
+			extractJson(html, 'DisconSchedule.streets', '{', '}') ??
+			extractJson(html, 'DisconSchedule.streets', '[', ']'),
 		fact: extractJson(html, 'DisconSchedule.fact', '{', '}'),
 		preset: extractJson(html, 'DisconSchedule.preset', '{', '}'),
 	};
@@ -109,8 +123,19 @@ async function extractRegion(
 
 	const page = await context.newPage();
 
+	// Intercept response to capture raw HTML before JS modifies/removes script tags
+	let rawHtml: string | null = null;
+	await page.route('**/ua/shutdowns', async (route) => {
+		const response = await route.fetch();
+		rawHtml = await response.text();
+		await route.fulfill({ response, body: rawHtml });
+	});
+
 	try {
 		await page.goto(url, { waitUntil: 'networkidle', timeout: 10_000 });
+
+		// Clean up route handler
+		await page.unroute('**/ua/shutdowns');
 
 		// Capture screenshot after page load
 		await page.screenshot({
@@ -124,9 +149,9 @@ async function extractRegion(
 		const csrf = await csrfLocator.getAttribute('content');
 		if (!csrf) throw new Error('CSRF token is empty');
 
-		// Get page HTML and parse on Node.js side (avoids tsx transform issues in browser)
-		const html = await page.content();
-		const raw = parseDisconSchedule(html);
+		// Parse DisconSchedule from RAW HTML (before JS modified/removed it)
+		if (!rawHtml) throw new Error('Failed to capture raw HTML response');
+		const raw = parseDisconSchedule(rawHtml);
 		const validated = DisconScheduleSchema.parse(raw);
 
 		// Normalize streets (can be array for single-city regions or object for multi-city)
@@ -145,7 +170,7 @@ async function extractRegion(
 			updateFact: validated.fact.update,
 			cities: Object.keys(streetsByCity),
 			streetsByCity,
-			presetData: validated.preset,
+			presetData: (validated.preset as { data?: unknown })?.data ?? null,
 			extractedAt: new Date().toISOString(),
 		};
 	} finally {
@@ -187,14 +212,31 @@ async function main(): Promise<void> {
 		recordVideo: { dir: VIDEOS_DIR, size: { width: 1280, height: 720 } },
 	});
 
+	const extractedData: Record<string, DtekCachedRegion> = {};
+
 	try {
 		for (const region of regionsToProcess) {
 			console.log(`${region.toUpperCase()}...`);
 			const data = await withRetry(() => extractRegion(context, region), 3);
 			await redis.set(dtekDataKey(region), JSON.stringify(data), 'EX', DTEK_CACHE_TTL);
+			extractedData[region] = data;
 			console.log(`  OK: ${data.cities.length} cities, updated ${data.updateFact}`);
 		}
-		console.log('\nDone');
+
+		// Save extracted data to JSON file for debugging/artifacts
+		writeFileSync(
+			DATA_FILE,
+			JSON.stringify(
+				{
+					extractedAt: new Date().toISOString(),
+					regions: extractedData,
+				},
+				null,
+				2
+			)
+		);
+		console.log(`\nSaved extracted data to ${DATA_FILE}`);
+		console.log('Done');
 	} finally {
 		await browser.close();
 		await redis.quit();

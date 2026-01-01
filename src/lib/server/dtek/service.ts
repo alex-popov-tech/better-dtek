@@ -242,7 +242,9 @@ export class DtekService {
 		if (!this.schedulesCache || this.schedulesCacheExtractedAt !== regionData.extractedAt) {
 			// Process raw preset data from KV
 			if (regionData.presetData) {
-				this.schedulesCache = processPresetSchedules(regionData.presetData as DtekRawPreset);
+				this.schedulesCache = processPresetSchedules({
+					data: regionData.presetData,
+				} as DtekRawPreset);
 			} else {
 				this.schedulesCache = {};
 			}

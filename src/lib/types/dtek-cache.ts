@@ -45,12 +45,16 @@ export const DTEK_REGION_URLS: Record<DtekRegion, string> = {
 	dem: 'https://www.dtek-dem.com.ua',
 };
 
-/** Default city names for single-city regions (like KEM) */
+/**
+ * Default city names for single-city array format (only KEM uses this).
+ * Multi-city regions (OEM, DNEM, DEM) return streets as object with city keys,
+ * so these fallbacks are not used for them.
+ */
 export const DTEK_REGION_CITY_NAMES: Record<DtekRegion, string> = {
 	kem: 'м. Київ',
-	oem: 'м. Одеса',
-	dnem: 'м. Дніпро',
-	dem: 'м. Донецьк',
+	oem: 'м. Одеса', // fallback not used - OEM uses multi-city format
+	dnem: 'м. Дніпро', // fallback not used - DNEM uses multi-city format
+	dem: 'Донецька область', // fallback not used - DEM uses multi-city format (serves unoccupied territories)
 };
 
 // -----------------------------------------------------------------------------
