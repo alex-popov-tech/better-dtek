@@ -8,8 +8,13 @@
 export const REGIONS = {
 	kem: {
 		code: 'kem',
-		name: 'Київська область',
+		name: 'Київ',
 		url: 'https://www.dtek-kem.com.ua',
+	},
+	krem: {
+		code: 'krem',
+		name: 'Київська область',
+		url: 'https://www.dtek-krem.com.ua',
 	},
 	oem: {
 		code: 'oem',

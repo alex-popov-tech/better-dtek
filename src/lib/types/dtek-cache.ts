@@ -9,14 +9,14 @@
  *   dtek:data:{region}  - Per-region cached data (TTL: 24h, refreshed every 20min)
  *   dtek:meta           - Last refresh metadata
  *
- * Regions: kem | oem | dnem | dem
+ * Regions: kem | krem | oem | dnem | dem
  */
 
 // -----------------------------------------------------------------------------
 // Constants
 // -----------------------------------------------------------------------------
 
-export const DTEK_REGIONS = ['kem', 'oem', 'dnem', 'dem'] as const;
+export const DTEK_REGIONS = ['kem', 'krem', 'oem', 'dnem', 'dem'] as const;
 export type DtekRegion = (typeof DTEK_REGIONS)[number];
 
 /** Cache TTL in seconds (24 hours - fallback for extraction failures, normal refresh is every 20 min) */
@@ -40,6 +40,7 @@ export function dtekDataKey(region: DtekRegion): string {
 
 export const DTEK_REGION_URLS: Record<DtekRegion, string> = {
 	kem: 'https://www.dtek-kem.com.ua',
+	krem: 'https://www.dtek-krem.com.ua',
 	oem: 'https://www.dtek-oem.com.ua',
 	dnem: 'https://www.dtek-dnem.com.ua',
 	dem: 'https://www.dtek-dem.com.ua',
@@ -52,6 +53,7 @@ export const DTEK_REGION_URLS: Record<DtekRegion, string> = {
  */
 export const DTEK_REGION_CITY_NAMES: Record<DtekRegion, string> = {
 	kem: 'м. Київ',
+	krem: 'Київська область', // fallback not used - KREM uses multi-city format
 	oem: 'м. Одеса', // fallback not used - OEM uses multi-city format
 	dnem: 'м. Дніпро', // fallback not used - DNEM uses multi-city format
 	dem: 'Донецька область', // fallback not used - DEM uses multi-city format (serves unoccupied territories)
