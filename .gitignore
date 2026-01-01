@@ -44,6 +44,7 @@ logs/
 
 # Script outputs
 scripts/output/
+artifacts/
 
 # Beads (bd) issue tracker
 .beads/
