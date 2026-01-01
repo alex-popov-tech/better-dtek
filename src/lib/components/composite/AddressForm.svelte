@@ -137,20 +137,34 @@
 	// Building: successful when selected (and street is valid)
 	const buildingSuccess = $derived(!!$form.building && !!$form.street && !statusError);
 
+	// Track last fetch key to prevent redundant fetches
+	// (superforms $form store notifies on ANY field change, not just the ones we care about)
+	let lastFetchKey = '';
+
 	// Fetch buildings when region+city+street are all selected
 	$effect(() => {
-		if ($form.region && $form.city && $form.street) {
+		const region = $form.region;
+		const city = $form.city;
+		const street = $form.street;
+
+		// Create a key from values that matter for the fetch
+		const currentKey = `${region}|${city}|${street}`;
+
+		// Skip if key hasn't changed (prevents redundant fetches from label changes, etc.)
+		if (currentKey === lastFetchKey) {
+			return;
+		}
+
+		if (region && city && street) {
+			lastFetchKey = currentKey;
+
 			async function loadBuildings() {
 				loadingStatus = true;
 				statusError = undefined;
 				formError = null; // Clear form error on new attempt
 				buildings = [];
 
-				const result = await fetchBuildingStatuses(
-					$form.region as RegionCode,
-					$form.city,
-					$form.street
-				);
+				const result = await fetchBuildingStatuses(region as RegionCode, city, street);
 
 				if (!result.ok) {
 					statusError = result.error.message;
@@ -176,6 +190,8 @@
 
 			loadBuildings();
 		} else {
+			// Reset fetch key when fields are cleared (allows re-fetch when selection is complete again)
+			lastFetchKey = currentKey;
 			buildings = [];
 			if ($form.building !== '') {
 				$form.building = '';
