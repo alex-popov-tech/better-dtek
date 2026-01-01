@@ -6,8 +6,8 @@
  * the SvelteKit application for reading cached data.
  *
  * Redis Keys:
- *   dtek:data:{region}  - Per-region cached data (TTL: 15min)
- *   dtek:meta           - Last refresh metadata (TTL: 15min)
+ *   dtek:data:{region}  - Per-region cached data (TTL: 24h, refreshed every 20min)
+ *   dtek:meta           - Last refresh metadata
  *
  * Regions: kem | oem | dnem | dem
  */
@@ -19,8 +19,8 @@
 export const DTEK_REGIONS = ['kem', 'oem', 'dnem', 'dem'] as const;
 export type DtekRegion = (typeof DTEK_REGIONS)[number];
 
-/** Cache TTL in seconds (25 minutes) */
-export const DTEK_CACHE_TTL = 1500;
+/** Cache TTL in seconds (24 hours - fallback for extraction failures, normal refresh is every 20 min) */
+export const DTEK_CACHE_TTL = 86400;
 
 /** Redis key for refresh metadata */
 export const DTEK_META_KEY = 'dtek:meta';
