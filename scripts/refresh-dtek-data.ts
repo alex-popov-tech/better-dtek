@@ -159,6 +159,13 @@ async function extractRegion(
 			? { [DTEK_REGION_CITY_NAMES[region]]: validated.streets }
 			: (validated.streets as Record<string, string[]>);
 
+		// Filter out invalid street entries (empty, whitespace-only, or placeholder like "*")
+		for (const city of Object.keys(streetsByCity)) {
+			streetsByCity[city] = streetsByCity[city].filter(
+				(street) => street && street.trim() && street.trim() !== '*'
+			);
+		}
+
 		// Extract cookies
 		const cookies = (await context.cookies()).map((c) => `${c.name}=${c.value}`).join('; ');
 
