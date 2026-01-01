@@ -209,6 +209,17 @@ function createAddressStatusStore() {
 	}
 
 	/**
+	 * Invalidate cache for a specific address (forces re-fetch on next access)
+	 */
+	function invalidate(addressId: string): void {
+		update((cache) => {
+			const newCache = new Map(cache);
+			newCache.delete(addressId);
+			return newCache;
+		});
+	}
+
+	/**
 	 * Get status for a specific address ID
 	 */
 	function getStatus(addressId: string): StatusCacheEntry | undefined {
@@ -223,6 +234,7 @@ function createAddressStatusStore() {
 		refreshStatus,
 		refreshAllStatuses,
 		clearCache,
+		invalidate,
 		getStatus,
 		/** Subscribe to schedule cache updates */
 		scheduleCache: {

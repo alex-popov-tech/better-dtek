@@ -79,7 +79,8 @@
 
 	function handleSave(data: Omit<SavedAddress, 'id' | 'createdAt'>) {
 		if (editingAddress) {
-			// Update existing address
+			// Invalidate cached status before updating (address location may have changed)
+			addressStatusStore.invalidate(editingAddress.id);
 			addressesStore.update(editingAddress.id, data);
 		} else {
 			// Add new address
