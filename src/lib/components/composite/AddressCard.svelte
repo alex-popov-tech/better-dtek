@@ -72,12 +72,23 @@
 	// Format queue number for display (GPV5.2 -> Черга 5.2)
 	const queueDisplay = $derived(groupId ? `Черга ${groupId.replace(/^GPV/, '')}` : null);
 
+	// Get today's date in DD.MM format (Kyiv timezone)
+	function getTodayDateString(): string {
+		const kyivTime = new Date().toLocaleString('en-US', { timeZone: 'Europe/Kyiv' });
+		const date = new Date(kyivTime);
+		const day = date.getDate().toString().padStart(2, '0');
+		const month = (date.getMonth() + 1).toString().padStart(2, '0');
+		return `${day}.${month}`;
+	}
+
 	// Format outage time range for display (works for all outage types)
-	// Same day: "08:00 — 18:00 20.12"
-	// Different days: "08:00 20.12 — 18:00 21.12"
+	// Same day today: "08:00 — 18:00" (omit today's date)
+	// Same day other: "08:00 — 18:00 20.12"
+	// Different days: omit today's date, keep others
 	const outageTimeRange = $derived.by(() => {
 		if (!status?.outage) return null;
 		const { from, to } = status.outage;
+		const todayDate = getTodayDateString();
 		// Parse time and date parts
 		const parseDateTime = (dateStr: string) => {
 			const match = dateStr.match(/^(\d{2}:\d{2})\s+(\d{2}\.\d{2})/);
@@ -86,12 +97,19 @@
 		const fromParsed = parseDateTime(from);
 		const toParsed = parseDateTime(to);
 		if (!fromParsed || !toParsed) return `${from} — ${to}`;
-		// Same day: show "08:00 — 18:00 20.12"
+		// Same day
 		if (fromParsed.date === toParsed.date) {
+			// Omit date if it's today
+			if (fromParsed.date === todayDate) {
+				return `${fromParsed.time} — ${toParsed.time}`;
+			}
 			return `${fromParsed.time} — ${toParsed.time} ${fromParsed.date}`;
 		}
-		// Different days: show "08:00 20.12 — 18:00 21.12"
-		return `${fromParsed.time} ${fromParsed.date} — ${toParsed.time} ${toParsed.date}`;
+		// Different days: omit today's date, keep others
+		const fromStr =
+			fromParsed.date === todayDate ? fromParsed.time : `${fromParsed.time} ${fromParsed.date}`;
+		const toStr = toParsed.date === todayDate ? toParsed.time : `${toParsed.time} ${toParsed.date}`;
+		return `${fromStr} — ${toStr}`;
 	});
 
 	// Status text color class - using darker shades for WCAG 4.5:1 contrast
