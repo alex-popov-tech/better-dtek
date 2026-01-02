@@ -190,26 +190,6 @@ export class DtekService {
 
 		return ok(filtered);
 	}
-
-	/**
-	 * Get the region code for this service instance
-	 */
-	getRegion(): RegionCode {
-		return this.regionCode;
-	}
-
-	/**
-	 * Get service statistics (for debugging)
-	 */
-	getStats(): {
-		region: RegionCode;
-		cacheStats: { size: number; keys: string[] };
-	} {
-		return {
-			region: this.regionCode,
-			cacheStats: this.statusCache.getStats(),
-		};
-	}
 }
 
 /**

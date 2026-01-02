@@ -53,42 +53,4 @@ export class TtlCache<T> {
 			expiresAt,
 		});
 	}
-
-	/**
-	 * Check if a valid (non-expired) entry exists
-	 */
-	has(key: string): boolean {
-		return this.get(key) !== null;
-	}
-
-	/**
-	 * Delete entry from cache
-	 */
-	delete(key: string): void {
-		this.cache.delete(key);
-	}
-
-	/**
-	 * Clear all entries from cache
-	 */
-	clear(): void {
-		this.cache.clear();
-	}
-
-	/**
-	 * Get cache statistics for debugging
-	 */
-	getStats(): { size: number; keys: string[] } {
-		// Clean up expired entries first
-		for (const [key, entry] of this.cache.entries()) {
-			if (Date.now() >= entry.expiresAt) {
-				this.cache.delete(key);
-			}
-		}
-
-		return {
-			size: this.cache.size,
-			keys: Array.from(this.cache.keys()),
-		};
-	}
 }

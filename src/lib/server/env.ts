@@ -50,10 +50,3 @@ export function getRedisEnv(): RedisEnv {
 	cachedRedisEnv = result.data;
 	return cachedRedisEnv;
 }
-
-/**
- * Check if Redis environment is configured (without throwing)
- */
-export function hasRedisEnv(): boolean {
-	return redisEnvSchema.safeParse(process.env).success;
-}

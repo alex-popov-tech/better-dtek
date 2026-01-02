@@ -5,7 +5,7 @@
  * import { getDtekService } from '$lib/server';
  */
 
-export { getDtekService, createDtekService } from './dtek/service';
+export { getDtekService } from './dtek/service';
 export type { DtekService } from './dtek/service';
 
-export { transformBuildingStatus, extractScheduleGroup, getOutageType } from './dtek/transform';
+export { transformBuildingStatus } from './dtek/transform';
