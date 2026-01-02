@@ -205,7 +205,10 @@ function resolveSchedules(
 	factToday: number | undefined
 ): ScheduleData | null {
 	// Parse preset.data structure: groupId → dayOfWeek → hour → status
-	const preset = presetData as Record<string, Record<string, Record<string, ScheduleStatus>>> | null;
+	const preset = presetData as Record<
+		string,
+		Record<string, Record<string, ScheduleStatus>>
+	> | null;
 	if (!preset || typeof preset !== 'object') {
 		return null;
 	}
@@ -215,9 +218,14 @@ function resolveSchedules(
 
 	// Parse fact.data structure: timestamp → groupId → hour → status
 	// fact.data can be [] (empty) or { timestamp: { groupId: { hour: status } } }
-	const fact = factData as Record<string, Record<string, Record<string, ScheduleStatus>>> | unknown[] | null;
+	const fact = factData as
+		| Record<string, Record<string, Record<string, ScheduleStatus>>>
+		| unknown[]
+		| null;
 	const factTodayData =
-		fact && !Array.isArray(fact) && factToday ? (fact[String(factToday)] as Record<string, Record<string, ScheduleStatus>> | undefined) : undefined;
+		fact && !Array.isArray(fact) && factToday
+			? (fact[String(factToday)] as Record<string, Record<string, ScheduleStatus>> | undefined)
+			: undefined;
 
 	// Collect all group IDs from both sources
 	const groupIds = new Set<string>();
