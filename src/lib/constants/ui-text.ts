@@ -19,7 +19,6 @@ export const UI_TEXT = {
 	noSavedAddresses: 'Немає збережених адрес',
 	addFirstAddress: 'Додайте першу адресу',
 	emptyStateValueProp: 'Відстежуйте планові та аварійні відключення',
-	refreshAll: 'Оновити все',
 
 	// Address form
 	addAddress: 'Додати адресу',
@@ -46,12 +45,10 @@ export const UI_TEXT = {
 	startDate: 'Початок',
 	endDate: 'Закінчення',
 	lastUpdated: 'Оновлено',
-	refresh: 'Оновити',
 
 	// Loading/Error
 	loading: 'Завантаження...',
 	error: 'Помилка',
-	retry: 'Спробувати знову',
 	dtekUnavailable: 'Сервіс ДТЕК тимчасово недоступний',
 	regionUnavailable: 'Регіон тимчасово недоступний. Спробуйте пізніше або оберіть інший регіон.',
 	tryLater: 'Спробуйте пізніше',

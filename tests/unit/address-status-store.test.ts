@@ -320,49 +320,6 @@ describe('addressStatusStore', () => {
 		});
 	});
 
-	describe('refreshStatus', () => {
-		it('clears cache and fetches fresh status', async () => {
-			// Initial fetch
-			const mockResponse1 = {
-				city: 'м. Одеса',
-				street: 'вул. Педагогічна',
-				buildings: {
-					'25/39': {},
-				},
-				schedules: {},
-				fetchedAt: Date.now(),
-			};
-
-			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(ok(mockResponse1));
-
-			await addressStatusStore.fetchStatus(mockAddress1);
-
-			expect(apiClient.fetchBuildingStatuses).toHaveBeenCalledTimes(1);
-
-			// Refresh - should force refetch
-			const mockResponse2 = {
-				city: 'м. Одеса',
-				street: 'вул. Педагогічна',
-				buildings: {
-					'25/39': {
-						outage: { type: 'planned' as const, from: '14:30 17.12.2025', to: '23:00 17.12.2025' },
-					},
-				},
-				schedules: {},
-				fetchedAt: Date.now(),
-			};
-
-			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(ok(mockResponse2));
-
-			await addressStatusStore.refreshStatus('addr-1', mockAddress1);
-
-			expect(apiClient.fetchBuildingStatuses).toHaveBeenCalledTimes(2);
-
-			const entry = addressStatusStore.getStatus('addr-1');
-			expect(entry?.status?.outage).toBeDefined();
-		});
-	});
-
 	describe('clearCache', () => {
 		it('clears all cached statuses', async () => {
 			const mockResponse = {

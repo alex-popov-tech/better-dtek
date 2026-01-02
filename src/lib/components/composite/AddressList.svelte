@@ -3,45 +3,27 @@
 	import type { StatusCacheEntry, ScheduleCache } from '$lib/stores/address-status';
 	import { UI_TEXT } from '$lib/constants/ui-text';
 	import AddressCard from './AddressCard.svelte';
-	import RefreshButton from '../atomic/RefreshButton.svelte';
 
 	interface Props {
 		addresses: SavedAddress[];
 		statuses: Map<string, StatusCacheEntry>;
 		scheduleCache: ScheduleCache | null;
-		onrefreshall: () => void;
 		onadd: () => void;
 		onedit: (id: string) => void;
 		ondelete: (id: string) => void;
-		onrefresh: (id: string) => void;
 	}
 
-	let {
-		addresses,
-		statuses,
-		scheduleCache,
-		onrefreshall,
-		onadd,
-		onedit,
-		ondelete,
-		onrefresh,
-	}: Props = $props();
+	let { addresses, statuses, scheduleCache, onadd, onedit, ondelete }: Props = $props();
 
 	const schedules = $derived(scheduleCache?.schedules ?? null);
 
 	const isEmpty = $derived(addresses.length === 0);
-
-	// Check if any address is currently loading (for refresh all button state)
-	const isAnyLoading = $derived(Array.from(statuses.values()).some((entry) => entry.loading));
 </script>
 
 <div class="space-y-6">
 	<!-- Header -->
 	<div class="flex items-center justify-between">
 		<h2 class="h2 font-bold">{UI_TEXT.savedAddresses}</h2>
-		{#if !isEmpty}
-			<RefreshButton onclick={onrefreshall} loading={isAnyLoading} label={UI_TEXT.refreshAll} />
-		{/if}
 	</div>
 
 	<!-- Empty state -->
@@ -101,7 +83,6 @@
 					error={statusEntry?.error}
 					fetchedAt={statusEntry?.fetchedAt}
 					{schedules}
-					onrefresh={() => onrefresh(address.id)}
 					onedit={() => onedit(address.id)}
 					ondelete={() => ondelete(address.id)}
 				/>

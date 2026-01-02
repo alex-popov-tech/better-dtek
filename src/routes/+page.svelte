@@ -92,29 +92,15 @@
 	function handleCancel() {
 		closeModal();
 	}
-
-	async function handleRefresh(id: string) {
-		const address = addresses.find((a) => a.id === id);
-		if (address) {
-			await addressStatusStore.refreshStatus(id, address);
-		}
-	}
-
-	async function handleRefreshAll() {
-		// Use optimistic refresh - keeps old data visible while loading
-		await addressStatusStore.refreshAllStatuses(addresses);
-	}
 </script>
 
 <AddressList
 	{addresses}
 	{statuses}
 	{scheduleCache}
-	onrefreshall={handleRefreshAll}
 	onadd={handleAdd}
 	onedit={handleEdit}
 	ondelete={handleDelete}
-	onrefresh={handleRefresh}
 />
 
 {#if showModal}

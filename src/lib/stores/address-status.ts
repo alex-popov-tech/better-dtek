@@ -131,77 +131,6 @@ function createAddressStatusStore() {
 	}
 
 	/**
-	 * Force refresh status for a single address (ignoring cache TTL, but keeping old data visible)
-	 */
-	async function refreshStatus(addressId: string, address: SavedAddress): Promise<void> {
-		const { region, city, street, building } = address;
-
-		// Get current cached entry to preserve old data
-		const currentCache = get({ subscribe });
-		const cachedEntry = currentCache.get(addressId);
-
-		// Set loading state while keeping old data visible (optimistic UI)
-		update((cache) => {
-			const newCache = new Map(cache);
-			newCache.set(addressId, {
-				status: cachedEntry?.status || null,
-				fetchedAt: cachedEntry?.fetchedAt || 0,
-				loading: true,
-				error: null,
-			});
-			return newCache;
-		});
-
-		const result = await fetchBuildingStatuses(region, city, street);
-
-		if (!result.ok) {
-			showError(result.error.message);
-
-			update((cache) => {
-				const newCache = new Map(cache);
-				newCache.set(addressId, {
-					status: cachedEntry?.status || null,
-					fetchedAt: cachedEntry?.fetchedAt || 0,
-					loading: false,
-					error: result.error.message,
-				});
-				return newCache;
-			});
-			return;
-		}
-
-		const response = result.value;
-		const buildingStatus = response.buildings[building] || null;
-
-		// Update schedule cache if schedules are present (merge with existing)
-		if (response.schedules && Object.keys(response.schedules).length > 0) {
-			scheduleCacheStore.update((cache) => ({
-				schedules: { ...cache?.schedules, ...response.schedules },
-				fetchedAt: response.fetchedAt,
-			}));
-		}
-
-		update((cache) => {
-			const newCache = new Map(cache);
-			newCache.set(addressId, {
-				status: buildingStatus,
-				fetchedAt: response.fetchedAt,
-				loading: false,
-				error: null,
-			});
-			return newCache;
-		});
-	}
-
-	/**
-	 * Force refresh all statuses (ignoring cache TTL, but keeping old data visible)
-	 */
-	async function refreshAllStatuses(addresses: SavedAddress[]): Promise<void> {
-		const promises = addresses.map((address) => refreshStatus(address.id, address));
-		await Promise.allSettled(promises);
-	}
-
-	/**
 	 * Clear all cached statuses
 	 */
 	function clearCache(): void {
@@ -231,8 +160,6 @@ function createAddressStatusStore() {
 		subscribe,
 		fetchStatus,
 		fetchAllStatuses,
-		refreshStatus,
-		refreshAllStatuses,
 		clearCache,
 		invalidate,
 		getStatus,

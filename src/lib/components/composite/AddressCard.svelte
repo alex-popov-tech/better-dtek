@@ -11,7 +11,6 @@
 		type TrafficLightStatus,
 	} from '$lib/utils/schedule';
 	import TrafficLight from '../atomic/TrafficLight.svelte';
-	import RefreshButton from '../atomic/RefreshButton.svelte';
 	import ScheduleDisplay from '../atomic/ScheduleDisplay.svelte';
 
 	interface Props {
@@ -22,7 +21,6 @@
 		fetchedAt?: number;
 		/** Schedule data by group ID */
 		schedules?: Record<string, Record<string, ScheduleRange[]>> | null;
-		onrefresh: () => void;
 		onedit: () => void;
 		ondelete: () => void;
 	}
@@ -34,7 +32,6 @@
 		error = null,
 		fetchedAt,
 		schedules = null,
-		onrefresh,
 		onedit,
 		ondelete,
 	}: Props = $props();
@@ -136,9 +133,6 @@
 					{#if error}
 						<div class="text-red-500 text-sm">
 							<p>{error}</p>
-							<button class="btn btn-sm variant-ghost-error mt-2" onclick={onrefresh}>
-								{UI_TEXT.retry}
-							</button>
 						</div>
 					{:else}
 						<!-- Status text group - tighter spacing -->
@@ -237,9 +231,6 @@
 						/>
 					</svg>
 				</button>
-
-				<!-- Refresh button -->
-				<RefreshButton onclick={onrefresh} {loading} icon={true} />
 			</div>
 		</div>
 	{/if}
