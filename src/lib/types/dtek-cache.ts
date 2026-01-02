@@ -12,6 +12,8 @@
  * Regions: kem | krem | oem | dnem | dem
  */
 
+import type { ScheduleStatus, ScheduleRange } from './dtek.js';
+
 // -----------------------------------------------------------------------------
 // Constants
 // -----------------------------------------------------------------------------
@@ -63,6 +65,31 @@ export const DTEK_REGION_CITY_NAMES: Record<DtekRegion, string> = {
 // Interfaces
 // -----------------------------------------------------------------------------
 
+/** Hourly schedule: hour key ("1"-"24") → status */
+export type HourlySchedule = Record<string, ScheduleStatus>;
+
+/**
+ * Pre-computed compressed schedule data for today and tomorrow.
+ * Resolved and compressed by refresh script from fact.data (if available) or preset.data.
+ * Uses ScheduleRange[] format for efficient storage and direct pass-through to frontend.
+ */
+export interface ScheduleData {
+	/** Day of week for today: "1" = Monday, "7" = Sunday */
+	todayDayOfWeek: string;
+
+	/** Day of week for tomorrow: "1" = Monday, "7" = Sunday */
+	tomorrowDayOfWeek: string;
+
+	/** Schedule groups: groupId → { today, tomorrow } with compressed ranges */
+	groups: Record<
+		string,
+		{
+			today: ScheduleRange[];
+			tomorrow: ScheduleRange[];
+		}
+	>;
+}
+
 /**
  * Cached data for a single DTEK region.
  * Stored in Redis at key: dtek:data:{region}
@@ -89,8 +116,8 @@ export interface DtekCachedRegion {
 	/** Streets indexed by city name */
 	streetsByCity: Record<string, string[]>;
 
-	/** Raw DisconSchedule.preset data (schedule groups) */
-	presetData: unknown;
+	/** Pre-computed schedule data for today/tomorrow (resolved from fact or preset) */
+	scheduleData: ScheduleData | null;
 
 	/** ISO timestamp when this data was extracted */
 	extractedAt: string;

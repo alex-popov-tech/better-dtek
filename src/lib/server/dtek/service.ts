@@ -10,15 +10,7 @@
  * - Result-based error handling with rich context
  */
 
-import type {
-	DtekStatusResponse,
-	Result,
-	DtekError,
-	ProcessedSchedules,
-	DtekRawPreset,
-	ScheduleStatus,
-	ScheduleRange,
-} from '$lib/types';
+import type { DtekStatusResponse, Result, DtekError, ProcessedSchedules } from '$lib/types';
 import { ok, formatErrorForLog } from '$lib/types';
 import { fetchBuildingStatuses, CookieJar } from './client';
 import { TtlCache } from './cache';
@@ -26,81 +18,6 @@ import { naturalSort, naturalSortKeys } from '$lib/utils/natural-sort';
 import type { RegionCode } from '$lib/constants/regions';
 import { getDtekRegionData } from '$lib/server/kv/client';
 import type { DtekCachedRegion } from '$lib/types/dtek-cache';
-
-// ============================================================================
-// Schedule Processing Utilities
-// ============================================================================
-
-type NormalizedStatus = 'yes' | 'maybe' | 'no';
-
-function normalizeStatus(status: ScheduleStatus): NormalizedStatus {
-	if (status === 'yes') return 'yes';
-	if (status === 'maybe' || status === 'mfirst' || status === 'msecond') return 'maybe';
-	return 'no';
-}
-
-function addRange(
-	ranges: ScheduleRange[],
-	from: number,
-	to: number,
-	status: NormalizedStatus
-): void {
-	const last = ranges[ranges.length - 1];
-	if (last && last.to === from && last.status === status) {
-		last.to = to;
-	} else {
-		ranges.push({ from, to, status });
-	}
-}
-
-/**
- * Compress hourly schedule to ranges with normalized statuses
- * Hour key mapping: "1" → 00:00-01:00, "10" → 09:00-10:00
- */
-function compressDaySchedule(dayData: Record<string, ScheduleStatus>): ScheduleRange[] {
-	const ranges: ScheduleRange[] = [];
-
-	for (let hourKey = 1; hourKey <= 24; hourKey++) {
-		const rawStatus = dayData[String(hourKey)];
-		if (!rawStatus) continue;
-
-		const hourStart = hourKey - 1;
-
-		if (rawStatus === 'mfirst') {
-			addRange(ranges, hourStart, hourStart + 0.5, 'maybe');
-			addRange(ranges, hourStart + 0.5, hourStart + 1, 'yes');
-		} else if (rawStatus === 'msecond') {
-			addRange(ranges, hourStart, hourStart + 0.5, 'yes');
-			addRange(ranges, hourStart + 0.5, hourStart + 1, 'maybe');
-		} else if (rawStatus === 'first') {
-			addRange(ranges, hourStart, hourStart + 0.5, 'no');
-			addRange(ranges, hourStart + 0.5, hourStart + 1, 'yes');
-		} else if (rawStatus === 'second') {
-			addRange(ranges, hourStart, hourStart + 0.5, 'yes');
-			addRange(ranges, hourStart + 0.5, hourStart + 1, 'no');
-		} else {
-			addRange(ranges, hourStart, hourStart + 1, normalizeStatus(rawStatus));
-		}
-	}
-
-	return ranges;
-}
-
-/**
- * Process raw preset schedules into compressed format
- */
-function processPresetSchedules(rawPreset: DtekRawPreset): ProcessedSchedules {
-	const result: ProcessedSchedules = {};
-
-	for (const [groupId, weekData] of Object.entries(rawPreset.data)) {
-		result[groupId] = {};
-		for (const [dayNum, dayData] of Object.entries(weekData)) {
-			result[groupId][dayNum] = compressDaySchedule(dayData);
-		}
-	}
-
-	return result;
-}
 
 // ============================================================================
 // DtekService
@@ -229,25 +146,37 @@ export class DtekService {
 
 	/**
 	 * Get schedules for specific groups
+	 * Schedules are pre-compressed by the refresh script, this just passes through.
+	 *
 	 * @param groupIds - Array of group IDs to retrieve schedules for
 	 * @returns Result with filtered schedules for the specified groups
+	 *          Days are keyed by day-of-week ("1"=Monday, "7"=Sunday)
 	 */
 	async getSchedules(groupIds: string[]): Promise<Result<ProcessedSchedules, DtekError>> {
 		const regionResult = await this.getRegionData();
 		if (!regionResult.ok) return regionResult;
 
 		const regionData = regionResult.value;
+		const scheduleData = regionData.scheduleData;
 
-		// Check if we need to re-process schedules (new data from KV)
+		// No schedule data available
+		if (!scheduleData) {
+			return ok({});
+		}
+
+		// Transform pre-compressed data to ProcessedSchedules format (cache on extractedAt change)
 		if (!this.schedulesCache || this.schedulesCacheExtractedAt !== regionData.extractedAt) {
-			// Process raw preset data from KV
-			if (regionData.presetData) {
-				this.schedulesCache = processPresetSchedules({
-					data: regionData.presetData,
-				} as DtekRawPreset);
-			} else {
-				this.schedulesCache = {};
+			const processed: ProcessedSchedules = {};
+
+			for (const [groupId, groupData] of Object.entries(scheduleData.groups)) {
+				// Data is already compressed (ScheduleRange[]), just map to day keys
+				processed[groupId] = {
+					[scheduleData.todayDayOfWeek]: groupData.today,
+					[scheduleData.tomorrowDayOfWeek]: groupData.tomorrow,
+				};
 			}
+
+			this.schedulesCache = processed;
 			this.schedulesCacheExtractedAt = regionData.extractedAt;
 		}
 
