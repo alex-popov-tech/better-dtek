@@ -37,13 +37,12 @@ vi.stubGlobal(
 );
 
 import { addressesStore } from '$lib/stores/addresses';
-import { theme, toggleTheme } from '$lib/stores/theme';
+import { theme } from '$lib/stores/theme';
 
 describe('addressesStore', () => {
 	beforeEach(() => {
 		localStorageMock.clear();
-		// Reset the store by clearing and reloading
-		addressesStore.clear();
+		addressesStore._reset();
 	});
 
 	it('starts empty', () => {
@@ -202,18 +201,6 @@ describe('addressesStore', () => {
 		expect(stored.data[0].city).toBe('test2');
 	});
 
-	it('clears all addresses', () => {
-		addressesStore.add({ region: 'oem', city: 'test1', street: 'test', building: '1' });
-		addressesStore.add({ region: 'oem', city: 'test2', street: 'test', building: '2' });
-
-		addressesStore.clear();
-
-		expect(get(addressesStore).length).toBe(0);
-		const stored = JSON.parse(localStorageMock.getItem('dtek-addresses') || '{}');
-		expect(stored.version).toBe(2);
-		expect(stored.data).toEqual([]);
-	});
-
 	it('loads addresses from localStorage on init', () => {
 		// Manually set localStorage with versioned format
 		const testAddresses = [
@@ -275,44 +262,17 @@ describe('theme store', () => {
 		// For this test, we assume the initial load picks up system preference
 	});
 
-	it('sets theme to dark', () => {
-		theme.set('dark');
-		expect(get(theme)).toBe('dark');
-	});
-
-	it('sets theme to light', () => {
-		theme.set('light');
+	it('toggles theme', () => {
+		// Start with light (default)
 		expect(get(theme)).toBe('light');
-	});
-
-	it('toggles from light to dark', () => {
-		theme.set('light');
 		theme.toggle();
 		expect(get(theme)).toBe('dark');
-	});
-
-	it('toggles from dark to light', () => {
-		theme.set('dark');
 		theme.toggle();
 		expect(get(theme)).toBe('light');
-	});
-
-	it('toggleTheme helper function works', () => {
-		theme.set('light');
-		toggleTheme();
-		expect(get(theme)).toBe('dark');
-	});
-
-	it('persists theme to localStorage on set', () => {
-		theme.set('dark');
-
-		const stored = localStorageMock.getItem('dtek-theme');
-		// saveToStorage uses JSON.stringify, so string values are stored with quotes
-		expect(stored).toBe('"dark"');
 	});
 
 	it('persists theme to localStorage on toggle', () => {
-		theme.set('light');
+		// Start with light (default), toggle to dark
 		theme.toggle();
 
 		const stored = localStorageMock.getItem('dtek-theme');

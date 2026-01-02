@@ -6,6 +6,8 @@ describe('fetchCities', () => {
 	beforeEach(() => {
 		// Mock global fetch
 		global.fetch = vi.fn();
+		// Silence console.error in tests (we'll verify calls explicitly)
+		vi.spyOn(console, 'error').mockImplementation(() => {});
 	});
 
 	afterEach(() => {
@@ -45,6 +47,7 @@ describe('fetchCities', () => {
 		if (!result.ok) {
 			expect(result.error.code).toBe('SERVER_ERROR');
 		}
+		expect(console.error).toHaveBeenCalledWith('[API Client] fetchCities failed: HTTP', 500);
 	});
 
 	it('returns error on invalid response format', async () => {
@@ -61,10 +64,14 @@ describe('fetchCities', () => {
 			expect(result.error.code).toBe('VALIDATION_ERROR');
 			expect(result.error.message).toBe('Невірний формат відповіді API');
 		}
+		expect(console.error).toHaveBeenCalledWith(
+			'[API Client] fetchCities: invalid response structure'
+		);
 	});
 
 	it('returns network error on fetch failure', async () => {
-		(global.fetch as any).mockRejectedValueOnce(new TypeError('Failed to fetch'));
+		const error = new TypeError('Failed to fetch');
+		(global.fetch as any).mockRejectedValueOnce(error);
 
 		const result = await fetchCities('oem');
 
@@ -73,12 +80,14 @@ describe('fetchCities', () => {
 			expect(result.error.code).toBe('NETWORK_ERROR');
 			expect(result.error.message).toBe("Немає з'єднання");
 		}
+		expect(console.error).toHaveBeenCalledWith('[API Client] fetchCities failed:', error);
 	});
 });
 
 describe('fetchStreets', () => {
 	beforeEach(() => {
 		global.fetch = vi.fn();
+		vi.spyOn(console, 'error').mockImplementation(() => {});
 	});
 
 	afterEach(() => {
@@ -142,6 +151,7 @@ describe('fetchStreets', () => {
 			expect(result.error.code).toBe('VALIDATION_ERROR');
 			expect(result.error.message).toBe('Невірні параметри');
 		}
+		expect(console.error).toHaveBeenCalledWith('[API Client] fetchStreets failed: HTTP', 400);
 	});
 
 	it('returns error on invalid response format', async () => {
@@ -158,10 +168,14 @@ describe('fetchStreets', () => {
 			expect(result.error.code).toBe('VALIDATION_ERROR');
 			expect(result.error.message).toBe('Невірний формат відповіді API');
 		}
+		expect(console.error).toHaveBeenCalledWith(
+			'[API Client] fetchStreets: invalid response structure'
+		);
 	});
 
 	it('returns network error on fetch failure', async () => {
-		(global.fetch as any).mockRejectedValueOnce(new TypeError('Failed to fetch'));
+		const error = new TypeError('Failed to fetch');
+		(global.fetch as any).mockRejectedValueOnce(error);
 
 		const result = await fetchStreets('oem', 'м. Одеса');
 
@@ -170,12 +184,14 @@ describe('fetchStreets', () => {
 			expect(result.error.code).toBe('NETWORK_ERROR');
 			expect(result.error.message).toBe("Немає з'єднання");
 		}
+		expect(console.error).toHaveBeenCalledWith('[API Client] fetchStreets failed:', error);
 	});
 });
 
 describe('fetchBuildingStatuses', () => {
 	beforeEach(() => {
 		global.fetch = vi.fn();
+		vi.spyOn(console, 'error').mockImplementation(() => {});
 	});
 
 	afterEach(() => {
@@ -260,6 +276,10 @@ describe('fetchBuildingStatuses', () => {
 			expect(result.error.code).toBe('VALIDATION_ERROR');
 			expect(result.error.message).toBe('Невірні параметри');
 		}
+		expect(console.error).toHaveBeenCalledWith(
+			'[API Client] fetchBuildingStatuses failed: HTTP',
+			400
+		);
 	});
 
 	it('returns error on 503 Service Unavailable', async () => {
@@ -276,6 +296,10 @@ describe('fetchBuildingStatuses', () => {
 			expect(result.error.code).toBe('SERVER_ERROR');
 			expect(result.error.message).toBe('Сервіс ДТЕК тимчасово недоступний');
 		}
+		expect(console.error).toHaveBeenCalledWith(
+			'[API Client] fetchBuildingStatuses failed: HTTP',
+			503
+		);
 	});
 
 	it('returns error on invalid response format (missing city)', async () => {
@@ -297,6 +321,9 @@ describe('fetchBuildingStatuses', () => {
 			expect(result.error.code).toBe('VALIDATION_ERROR');
 			expect(result.error.message).toBe('Невірний формат відповіді API');
 		}
+		expect(console.error).toHaveBeenCalledWith(
+			'[API Client] fetchBuildingStatuses: invalid response structure'
+		);
 	});
 
 	it('returns error on invalid response format (invalid buildings)', async () => {
@@ -319,10 +346,14 @@ describe('fetchBuildingStatuses', () => {
 			expect(result.error.code).toBe('VALIDATION_ERROR');
 			expect(result.error.message).toBe('Невірний формат відповіді API');
 		}
+		expect(console.error).toHaveBeenCalledWith(
+			'[API Client] fetchBuildingStatuses: invalid response structure'
+		);
 	});
 
 	it('returns network error on fetch failure', async () => {
-		(global.fetch as any).mockRejectedValueOnce(new TypeError('Failed to fetch'));
+		const error = new TypeError('Failed to fetch');
+		(global.fetch as any).mockRejectedValueOnce(error);
 
 		const result = await fetchBuildingStatuses('oem', 'м. Одеса', 'вул. Педагогічна');
 
@@ -331,6 +362,7 @@ describe('fetchBuildingStatuses', () => {
 			expect(result.error.code).toBe('NETWORK_ERROR');
 			expect(result.error.message).toBe("Немає з'єднання");
 		}
+		expect(console.error).toHaveBeenCalledWith('[API Client] fetchBuildingStatuses failed:', error);
 	});
 
 	it('handles empty buildings object', async () => {

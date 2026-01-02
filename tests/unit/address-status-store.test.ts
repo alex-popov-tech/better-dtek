@@ -38,8 +38,7 @@ describe('addressStatusStore', () => {
 	};
 
 	beforeEach(() => {
-		// Clear store before each test
-		addressStatusStore.clearCache();
+		addressStatusStore._reset();
 		vi.clearAllMocks();
 	});
 
@@ -317,32 +316,6 @@ describe('addressStatusStore', () => {
 			await addressStatusStore.fetchAllStatuses([]);
 
 			expect(apiClient.fetchBuildingStatuses).not.toHaveBeenCalled();
-		});
-	});
-
-	describe('clearCache', () => {
-		it('clears all cached statuses', async () => {
-			const mockResponse = {
-				city: 'м. Одеса',
-				street: 'вул. Педагогічна',
-				buildings: {
-					'25/39': {},
-				},
-				schedules: {},
-				fetchedAt: Date.now(),
-			};
-
-			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(ok(mockResponse));
-
-			await addressStatusStore.fetchStatus(mockAddress1);
-
-			let cache = get(addressStatusStore);
-			expect(cache.size).toBe(1);
-
-			addressStatusStore.clearCache();
-
-			cache = get(addressStatusStore);
-			expect(cache.size).toBe(0);
 		});
 	});
 
