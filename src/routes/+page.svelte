@@ -113,20 +113,18 @@
 		tabindex="-1"
 	>
 		<!-- Backdrop -->
-		<div
-			class="absolute inset-0 bg-surface-backdrop-token backdrop-blur-md cursor-pointer"
+		<button
+			type="button"
+			class="absolute inset-0 bg-surface-backdrop-token backdrop-blur-md cursor-pointer border-0"
 			onclick={handleCancel}
-			onkeydown={(e) => e.key === 'Enter' && handleCancel()}
-			role="button"
-			tabindex="-1"
-			aria-label="Close modal"
-		></div>
-		<!-- Modal content -->
+			aria-label="Закрити модальне вікно"
+		></button>
 		<div
 			bind:this={modalElement}
 			class="card p-6 w-full sm:max-w-xl max-h-[80vh] overflow-y-auto relative z-10 shadow-xl ring-1 ring-surface-300-600-token"
 			data-testid="address-modal"
 			tabindex="-1"
+			role="none"
 			onclick={(e) => e.stopPropagation()}
 		>
 			<h2 id="modal-title" class="h2 font-bold mb-4">
