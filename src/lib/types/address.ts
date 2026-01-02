@@ -1,4 +1,4 @@
-import type { DtekBuildingStatus, ScheduleRange } from './dtek.js';
+import type { ScheduleRange } from './dtek.js';
 import type { RegionCode } from '$lib/constants/regions.js';
 
 /**
@@ -50,18 +50,6 @@ export interface SavedAddress {
 }
 
 /**
- * Status for a saved address (used in UI)
- */
-export interface AddressStatus {
-	address: SavedAddress;
-	status: DtekBuildingStatus | null;
-	/** Unix timestamp when status was fetched */
-	fetchedAt: number;
-	/** Error message if fetch failed */
-	error?: string;
-}
-
-/**
  * API response for GET /api/cities
  */
 export interface CitiesResponse {
@@ -84,17 +72,6 @@ export interface StatusResponse {
 	street: string;
 	buildings: Record<string, BuildingStatus>;
 	schedules: Record<string, Record<string, ScheduleRange[]>>;
-	fetchedAt: number;
-}
-
-/**
- * API response for GET /api/status with building param (single building)
- */
-export interface SingleStatusResponse {
-	city: string;
-	street: string;
-	building: string;
-	status: DtekBuildingStatus | null;
 	fetchedAt: number;
 }
 

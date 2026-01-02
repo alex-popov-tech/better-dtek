@@ -87,50 +87,6 @@ export const dtekStatusResponseSchema = z.object({
 export type DtekStatusResponseValidated = z.infer<typeof dtekStatusResponseSchema>;
 
 // =============================================================================
-// Template Parsing Schemas
-// =============================================================================
-
-/**
- * Schedule status values (normalized)
- */
-export const normalizedScheduleStatusSchema = z.enum(['yes', 'maybe', 'no']);
-
-/**
- * Schedule range with float times
- */
-export const scheduleRangeSchema = z.object({
-	from: z.number(),
-	to: z.number(),
-	status: normalizedScheduleStatusSchema,
-});
-
-export type ScheduleRangeValidated = z.infer<typeof scheduleRangeSchema>;
-
-/**
- * Processed schedules: groupId → day → ranges
- */
-export const processedSchedulesSchema = z.record(
-	z.string(),
-	z.record(z.string(), z.array(scheduleRangeSchema))
-);
-
-export type ProcessedSchedulesValidated = z.infer<typeof processedSchedulesSchema>;
-
-/**
- * Schema for parsed DTEK template data
- * Matches DtekTemplateData interface
- */
-export const dtekTemplateDataSchema = z.object({
-	csrf: z.string().min(1, 'CSRF token is required'),
-	updateFact: z.string(),
-	cities: z.array(z.string()),
-	streetsByCity: z.record(z.string(), z.array(z.string())),
-	schedules: processedSchedulesSchema.optional(),
-});
-
-export type DtekTemplateDataValidated = z.infer<typeof dtekTemplateDataSchema>;
-
-// =============================================================================
 // Form Schemas (for Superforms)
 // =============================================================================
 

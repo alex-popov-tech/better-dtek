@@ -124,53 +124,6 @@ export const parseError = (
 });
 
 /**
- * Create a SessionError
- */
-export const sessionError = (
-	reason: SessionError['reason'],
-	message: string,
-	opts?: Partial<Omit<SessionError, 'code' | 'reason' | 'message' | 'timestamp'>>
-): SessionError => ({
-	code: 'SESSION_ERROR',
-	reason,
-	message,
-	timestamp: Date.now(),
-	...opts,
-});
-
-/**
- * Create a ValidationError
- */
-export const validationError = (
-	field: string,
-	constraint: string,
-	message: string,
-	providedValue?: unknown
-): ValidationError => ({
-	code: 'VALIDATION_ERROR',
-	field,
-	constraint,
-	message,
-	providedValue,
-	timestamp: Date.now(),
-});
-
-/**
- * Create a RegionUnavailableError
- */
-export const regionUnavailableError = (
-	message: string,
-	region?: string,
-	cause?: unknown
-): RegionUnavailableError => ({
-	code: 'REGION_UNAVAILABLE',
-	message,
-	region,
-	cause,
-	timestamp: Date.now(),
-});
-
-/**
  * Create a KvError
  */
 export const kvError = (message: string, cause?: unknown): KvError => ({
