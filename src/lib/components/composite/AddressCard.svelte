@@ -41,8 +41,10 @@
 	const regionName = $derived(REGIONS[address.region]?.name || address.region);
 
 	// Get schedule for this building's group
+	// Use region:groupId key format to handle same group IDs across different regions
 	const groupId = $derived(status?.group);
-	const groupSchedule = $derived(groupId && schedules ? schedules[groupId] : null);
+	const scheduleKey = $derived(groupId ? `${address.region}:${groupId}` : null);
+	const groupSchedule = $derived(scheduleKey && schedules ? schedules[scheduleKey] : null);
 
 	// Get today's ranges for traffic light calculation
 	const today = $derived(getUkrainianDayOfWeek());

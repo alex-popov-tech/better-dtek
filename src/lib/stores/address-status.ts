@@ -5,6 +5,21 @@ import { fetchBuildingStatuses } from '$lib/utils/api-client';
 import { showError } from '$lib/stores/toast';
 
 /**
+ * Prefix schedule keys with region to avoid collisions.
+ * Same group IDs exist across regions with different schedules.
+ */
+function prefixSchedulesWithRegion(
+	schedules: Record<string, Record<string, ScheduleRange[]>>,
+	region: string
+): Record<string, Record<string, ScheduleRange[]>> {
+	const prefixed: Record<string, Record<string, ScheduleRange[]>> = {};
+	for (const [groupId, daySchedules] of Object.entries(schedules)) {
+		prefixed[`${region}:${groupId}`] = daySchedules;
+	}
+	return prefixed;
+}
+
+/**
  * Cached schedule data from API responses
  */
 export interface ScheduleCache {
@@ -49,7 +64,7 @@ const scheduleCacheStore = writable<ScheduleCache | null>(null);
  * Create the address status store
  */
 function createAddressStatusStore() {
-	const { subscribe, set, update } = writable<Map<string, StatusCacheEntry>>(new Map());
+	const { subscribe, update } = writable<Map<string, StatusCacheEntry>>(new Map());
 
 	/**
 	 * Fetch status for a single address
@@ -102,9 +117,11 @@ function createAddressStatusStore() {
 		const buildingStatus = response.buildings[building] || null;
 
 		// Update schedule cache if schedules are present (merge with existing)
+		// Prefix with region to avoid collisions (same group IDs exist across regions)
 		if (response.schedules && Object.keys(response.schedules).length > 0) {
+			const prefixedSchedules = prefixSchedulesWithRegion(response.schedules, region);
 			scheduleCacheStore.update((cache) => ({
-				schedules: { ...cache?.schedules, ...response.schedules },
+				schedules: { ...cache?.schedules, ...prefixedSchedules },
 				fetchedAt: response.fetchedAt,
 			}));
 		}
@@ -131,13 +148,6 @@ function createAddressStatusStore() {
 	}
 
 	/**
-	 * Clear all cached statuses
-	 */
-	function clearCache(): void {
-		set(new Map());
-	}
-
-	/**
 	 * Invalidate cache for a specific address (forces re-fetch on next access)
 	 */
 	function invalidate(addressId: string): void {
@@ -160,12 +170,17 @@ function createAddressStatusStore() {
 		subscribe,
 		fetchStatus,
 		fetchAllStatuses,
-		clearCache,
 		invalidate,
 		getStatus,
 		/** Subscribe to schedule cache updates */
 		scheduleCache: {
 			subscribe: scheduleCacheStore.subscribe,
+		},
+		/**
+		 * Reset store state (for testing)
+		 */
+		_reset: (): void => {
+			update(() => new Map());
 		},
 	};
 }
