@@ -32,33 +32,3 @@ export function showError(message: string): void {
 		background: 'variant-filled-error',
 	});
 }
-
-/**
- * Show a success toast notification
- * @param message - The success message to display (Ukrainian)
- */
-export function showSuccess(message: string): void {
-	if (!toastStoreRef) {
-		console.error('[Toast] Store not initialized. Call initToastStore() first.');
-		return;
-	}
-	toastStoreRef.trigger({
-		message,
-		background: 'variant-filled-success',
-	});
-}
-
-/**
- * Show an info toast notification
- * @param message - The info message to display (Ukrainian)
- */
-export function showInfo(message: string): void {
-	if (!toastStoreRef) {
-		console.error('[Toast] Store not initialized. Call initToastStore() first.');
-		return;
-	}
-	toastStoreRef.trigger({
-		message,
-		background: 'variant-filled-primary',
-	});
-}

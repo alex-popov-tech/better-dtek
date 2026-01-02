@@ -45,14 +45,6 @@ function createThemeStore() {
 		subscribe,
 
 		/**
-		 * Set the theme
-		 */
-		set: (theme: Theme): void => {
-			set(theme);
-			saveTheme(theme);
-		},
-
-		/**
 		 * Toggle between light and dark themes
 		 */
 		toggle: (): void => {
@@ -65,10 +57,3 @@ function createThemeStore() {
 }
 
 export const theme = createThemeStore();
-
-/**
- * Toggle theme helper function
- */
-export function toggleTheme(): void {
-	theme.toggle();
-}

@@ -80,46 +80,6 @@ function createCitiesStore() {
 		},
 
 		/**
-		 * Force refresh cities for the current region (bypasses cache)
-		 * @param region - Region code to refresh cities for
-		 */
-		async refresh(region: RegionCode): Promise<void> {
-			update((s) => ({ ...s, region, loading: true, error: null, regionError: null }));
-
-			const result = await fetchCities(region);
-
-			if (!result.ok) {
-				showError(result.error.message);
-				// Check if this is a region unavailable error
-				if (result.error.code === 'REGION_UNAVAILABLE') {
-					update((s) => ({
-						...s,
-						loading: false,
-						error: null,
-						regionError: result.error.message,
-					}));
-				} else {
-					update((s) => ({
-						...s,
-						loading: false,
-						error: result.error.message,
-						regionError: null,
-					}));
-				}
-				return;
-			}
-
-			set({
-				region,
-				cities: result.value,
-				loading: false,
-				error: null,
-				regionError: null,
-				fetched: true,
-			});
-		},
-
-		/**
 		 * Get cities synchronously (returns empty array if not yet fetched)
 		 */
 		getCities(): string[] {

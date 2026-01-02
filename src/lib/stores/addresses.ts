@@ -59,7 +59,7 @@ function generateId(): string {
  * Create the addresses store
  */
 function createAddressesStore() {
-	const { subscribe, set, update } = writable<SavedAddress[]>(loadAddresses());
+	const { subscribe, update } = writable<SavedAddress[]>(loadAddresses());
 
 	return {
 		subscribe,
@@ -103,11 +103,10 @@ function createAddressesStore() {
 		},
 
 		/**
-		 * Clear all addresses
+		 * Clear all addresses (for testing)
 		 */
-		clear: (): void => {
-			set([]);
-			saveAddresses([]);
+		_reset: (): void => {
+			update(() => []);
 		},
 	};
 }
