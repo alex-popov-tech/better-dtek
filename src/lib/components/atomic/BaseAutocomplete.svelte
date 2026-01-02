@@ -82,11 +82,13 @@
 		onchange(selected);
 	}
 
-	// Use a stable object reference since inputId doesn't change after mount
-	// This prevents the popup directive from reinitializing on every render
+	// Capture inputId at init - expected to be stable after mount
+	const stableInputId = untrack(() => inputId);
+
+	// Use a stable object reference to prevent popup directive from reinitializing on every render
 	const popupSettings: PopupSettings = {
 		event: 'focus-click',
-		target: `${inputId}Autocomplete`,
+		target: `${stableInputId}Autocomplete`,
 		placement: 'bottom',
 	};
 </script>

@@ -29,8 +29,11 @@
 
 	let { data, address: initialAddress, onsave, oncancel, ondelete }: Props = $props();
 
+	// Capture initial form data - superForm manages its own state after initialization
+	const initialFormData = untrack(() => data.form);
+
 	// Initialize superForm with client-side validation
-	const { form, errors, enhance, submitting } = superForm(data.form, {
+	const { form, errors, enhance, submitting } = superForm(initialFormData, {
 		validators: zod4Client(addressFormSchema),
 		dataType: 'json',
 		// Handle successful submission
