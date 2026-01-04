@@ -1,9 +1,18 @@
 import { sveltekit } from '@sveltejs/kit/vite';
+import { sentrySvelteKit } from '@sentry/sveltekit';
 import { SvelteKitPWA } from '@vite-pwa/sveltekit';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
 	plugins: [
+		// Sentry MUST be before sveltekit() for source map uploads
+		sentrySvelteKit({
+			sourceMapsUploadOptions: {
+				org: process.env.SENTRY_ORG,
+				project: process.env.SENTRY_PROJECT,
+				authToken: process.env.SENTRY_AUTH_TOKEN,
+			},
+		}),
 		sveltekit(),
 		SvelteKitPWA({
 			registerType: 'autoUpdate',

@@ -1,10 +1,34 @@
+import * as Sentry from '@sentry/sveltekit';
+import { PUBLIC_SENTRY_DSN, PUBLIC_SENTRY_ENVIRONMENT } from '$env/static/public';
 import type { HandleServerError } from '@sveltejs/kit';
 
+// Initialize Sentry FIRST (only if DSN is configured)
+if (PUBLIC_SENTRY_DSN) {
+	Sentry.init({
+		dsn: PUBLIC_SENTRY_DSN,
+		environment: PUBLIC_SENTRY_ENVIRONMENT || 'development',
+	});
+}
+
 /**
- * Global error handler for server-side errors
- * Prevents server crashes and logs errors properly
+ * Custom error handler with Sentry context
  */
-export const handleError: HandleServerError = ({ error, event }) => {
+const myErrorHandler: HandleServerError = ({ error, event }) => {
+	// Add request context for every error (only if Sentry is initialized)
+	if (PUBLIC_SENTRY_DSN) {
+		Sentry.setContext('request', {
+			url: event.url.pathname,
+			method: event.request.method,
+			searchParams: Object.fromEntries(event.url.searchParams),
+		});
+
+		// Extract region from URL if present
+		const region = event.url.searchParams.get('region');
+		if (region) {
+			Sentry.setTag('region', region);
+		}
+	}
+
 	// Log the error details
 	console.error('[Server Error]', {
 		url: event.url.pathname,
@@ -20,3 +44,8 @@ export const handleError: HandleServerError = ({ error, event }) => {
 		code: 'INTERNAL_ERROR',
 	};
 };
+
+export const handleError = Sentry.handleErrorWithSentry(myErrorHandler);
+
+// Sentry request handler for tracing (only if DSN is configured)
+export const handle = PUBLIC_SENTRY_DSN ? Sentry.sentryHandle() : undefined;
