@@ -1,4 +1,5 @@
 <div align="center">
+<img alt="Header logo" src="https://github.com/user-attachments/assets/b30e4adf-1757-4b13-bc48-209260af27dd" />
 
 # DTEK Power Outage Tracker
 
