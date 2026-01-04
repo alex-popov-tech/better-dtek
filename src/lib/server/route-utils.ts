@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { DtekError } from '$lib/types';
 import { errorToHttpStatus, errorToUserMessage, formatErrorForLog } from '$lib/types';
 import type { RetryError } from '$lib/utils/retry';
+import { captureDtekError } from './sentry';
 
 /**
  * Handle service error and return appropriate JSON response
@@ -11,6 +12,10 @@ import type { RetryError } from '$lib/utils/retry';
  */
 export function handleServiceError(logPrefix: string, error: DtekError) {
 	console.error(logPrefix, formatErrorForLog(error));
+
+	// Capture to Sentry with full context
+	captureDtekError(error, { logPrefix });
+
 	return json(
 		{ error: error.code, message: errorToUserMessage(error) },
 		{ status: errorToHttpStatus(error) }

@@ -54,3 +54,4 @@ artifacts/
 
 # Agent instructions (local tooling)
 AGENTS.md
+.env.ci
