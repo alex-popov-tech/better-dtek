@@ -1,9 +1,22 @@
 import { writable } from 'svelte/store';
 import type { SavedAddress } from '$lib/types/address.js';
+import type { RegionCode } from '$lib/constants/regions';
 import { loadFromStorage, saveToStorage } from '$lib/utils/storage';
 
 const STORAGE_KEY = 'dtek-addresses';
+const INTERACTED_KEY = 'dtek-has-interacted';
 const SCHEMA_VERSION = 2; // Version 2 adds region field
+
+/**
+ * Sample address shown to first-time users
+ */
+const SAMPLE_ADDRESS: Omit<SavedAddress, 'id' | 'createdAt'> = {
+	region: 'kem' as RegionCode,
+	city: 'м. Київ',
+	street: 'вул. Хрещатик',
+	building: '1',
+	label: 'Приклад',
+};
 
 /**
  * Versioned storage format
@@ -45,6 +58,22 @@ function saveAddresses(addresses: SavedAddress[]): void {
 }
 
 /**
+ * Check if user has ever added an address
+ */
+function hasUserInteracted(): boolean {
+	if (typeof localStorage === 'undefined') return false;
+	return localStorage.getItem(INTERACTED_KEY) === 'true';
+}
+
+/**
+ * Mark that user has interacted (added an address)
+ */
+function markUserInteracted(): void {
+	if (typeof localStorage === 'undefined') return;
+	localStorage.setItem(INTERACTED_KEY, 'true');
+}
+
+/**
  * Generate a simple UUID v4
  */
 function generateId(): string {
@@ -68,6 +97,7 @@ function createAddressesStore() {
 		 * Add a new address
 		 */
 		add: (address: Omit<SavedAddress, 'id' | 'createdAt'>): void => {
+			markUserInteracted();
 			update((addresses) => {
 				const newAddress: SavedAddress = {
 					...address,
@@ -112,3 +142,17 @@ function createAddressesStore() {
 }
 
 export const addressesStore = createAddressesStore();
+
+/**
+ * Initialize sample address for first-time users
+ * Should be called once on app load
+ */
+export function initializeForFirstTimeUser(): void {
+	if (hasUserInteracted()) return;
+
+	const addresses = loadAddresses();
+	if (addresses.length === 0) {
+		// First time user - inject sample address
+		addressesStore.add(SAMPLE_ADDRESS);
+	}
+}

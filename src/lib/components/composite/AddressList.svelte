@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { SavedAddress } from '$lib/types/address';
 	import type { StatusCacheEntry, ScheduleCache } from '$lib/stores/address-status';
+	import { addressStatusStore } from '$lib/stores/address-status';
 	import { UI_TEXT } from '$lib/constants/ui-text';
 	import AddressCard from './AddressCard.svelte';
 
@@ -18,12 +19,69 @@
 	const schedules = $derived(scheduleCache?.schedules ?? null);
 
 	const isEmpty = $derived(addresses.length === 0);
+
+	const isRefreshing = $derived(
+		addresses.length > 0 && Array.from(statuses.values()).some((entry) => entry.loading)
+	);
+
+	async function handleRefresh() {
+		await addressStatusStore.refreshAllStatuses(addresses);
+	}
 </script>
 
 <div class="space-y-6">
 	<!-- Header -->
 	<div class="flex items-center justify-between">
 		<h2 class="h2 font-bold">{UI_TEXT.savedAddresses}</h2>
+
+		{#if !isEmpty}
+			<div class="flex items-center gap-2">
+				<!-- Refresh button -->
+				<button
+					type="button"
+					class="btn-icon btn-icon-sm variant-ghost-surface"
+					onclick={handleRefresh}
+					disabled={isRefreshing}
+					aria-label={UI_TEXT.refresh}
+					title={UI_TEXT.refresh}
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke-width="1.5"
+						stroke="currentColor"
+						class="w-5 h-5"
+						class:animate-spin={isRefreshing}
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
+						/>
+					</svg>
+				</button>
+
+				<!-- Add button - desktop/tablet only, mobile uses FAB -->
+				<button
+					type="button"
+					class="btn btn-sm variant-ghost-surface hidden sm:flex items-center gap-1"
+					onclick={onadd}
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke-width="2"
+						stroke="currentColor"
+						class="w-5 h-5"
+					>
+						<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+					</svg>
+					<span>{UI_TEXT.addAddress}</span>
+				</button>
+			</div>
+		{/if}
 	</div>
 
 	<!-- Empty state -->
@@ -88,30 +146,13 @@
 				/>
 			{/each}
 		</div>
-
-		<!-- Add button (desktop/tablet only) -->
-		<div class="hidden md:flex justify-center">
-			<button type="button" class="btn variant-ghost-primary" onclick={onadd}>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke-width="1.5"
-					stroke="currentColor"
-					class="w-5 h-5"
-				>
-					<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-				</svg>
-				<span>{UI_TEXT.addAddress}</span>
-			</button>
-		</div>
 	{/if}
 
-	<!-- Mobile FAB -->
+	<!-- Mobile FAB - sized to match Sentry feedback button (48x48px) -->
 	{#if !isEmpty}
 		<button
 			type="button"
-			class="fixed bottom-6 right-6 z-40 btn-icon btn-icon-xl variant-filled-primary shadow-xl md:hidden rounded-full"
+			class="fixed bottom-8 right-6 z-40 w-12 h-12 flex items-center justify-center variant-filled-primary shadow-xl md:hidden rounded-full"
 			onclick={onadd}
 			aria-label={UI_TEXT.addAddress}
 		>
@@ -121,7 +162,7 @@
 				viewBox="0 0 24 24"
 				stroke-width="2"
 				stroke="currentColor"
-				class="w-6 h-6"
+				class="w-5 h-5"
 			>
 				<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
 			</svg>

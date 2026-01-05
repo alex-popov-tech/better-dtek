@@ -4,13 +4,19 @@
 	import AppShell from '$lib/components/layout/AppShell.svelte';
 	import { theme } from '$lib/stores/theme';
 	import { initToastStore } from '$lib/stores/toast';
+	import { initializeForFirstTimeUser } from '$lib/stores/addresses';
 	import { UI_TEXT } from '$lib/constants/ui-text';
 	import { initializeStores, storePopup, Toast, getToastStore } from '@skeletonlabs/skeleton';
 	import { computePosition, autoUpdate, offset, shift, flip, arrow } from '@floating-ui/dom';
+	import { onMount } from 'svelte';
 
 	initializeStores();
 	storePopup.set({ computePosition, autoUpdate, offset, shift, flip, arrow });
 	initToastStore(getToastStore());
+
+	onMount(() => {
+		initializeForFirstTimeUser();
+	});
 
 	let { children } = $props();
 
