@@ -19,6 +19,7 @@ export const UI_TEXT = {
 	noSavedAddresses: 'Немає збережених адрес',
 	addFirstAddress: 'Додайте першу адресу',
 	emptyStateValueProp: 'Відстежуйте планові та аварійні відключення',
+	refresh: 'Оновити',
 
 	// Address form
 	addAddress: 'Додати адресу',

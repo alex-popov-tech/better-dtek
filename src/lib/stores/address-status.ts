@@ -68,14 +68,15 @@ function createAddressStatusStore() {
 
 	/**
 	 * Fetch status for a single address
+	 * @param forceRefresh - If true, bypass cache and fetch fresh data
 	 */
-	async function fetchStatus(address: SavedAddress): Promise<void> {
+	async function fetchStatus(address: SavedAddress, forceRefresh = false): Promise<void> {
 		const { id, region, city, street, building } = address;
 
-		// Check cache first
+		// Check cache first (skip if forceRefresh)
 		const currentCache = get({ subscribe });
 		const cachedEntry = currentCache.get(id);
-		if (cachedEntry && !isStale(cachedEntry) && !cachedEntry.error) {
+		if (!forceRefresh && cachedEntry && !isStale(cachedEntry) && !cachedEntry.error) {
 			// Cache hit and not stale - skip fetch
 			return;
 		}
@@ -141,10 +142,18 @@ function createAddressStatusStore() {
 
 	/**
 	 * Fetch statuses for multiple addresses in parallel
+	 * @param forceRefresh - If true, bypass cache and fetch fresh data
 	 */
-	async function fetchAllStatuses(addresses: SavedAddress[]): Promise<void> {
-		const promises = addresses.map((address) => fetchStatus(address));
+	async function fetchAllStatuses(addresses: SavedAddress[], forceRefresh = false): Promise<void> {
+		const promises = addresses.map((address) => fetchStatus(address, forceRefresh));
 		await Promise.allSettled(promises);
+	}
+
+	/**
+	 * Force refresh all address statuses (bypasses cache)
+	 */
+	async function refreshAllStatuses(addresses: SavedAddress[]): Promise<void> {
+		await fetchAllStatuses(addresses, true);
 	}
 
 	/**
@@ -170,6 +179,7 @@ function createAddressStatusStore() {
 		subscribe,
 		fetchStatus,
 		fetchAllStatuses,
+		refreshAllStatuses,
 		invalidate,
 		getStatus,
 		/** Subscribe to schedule cache updates */
