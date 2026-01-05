@@ -36,7 +36,7 @@
 
 			<!-- App title -->
 			<div class="flex flex-col items-center">
-				<h1 class="text-lg md:text-xl font-bold">{UI_TEXT.appTitle}</h1>
+				<h1 class="text-base md:text-xl font-bold whitespace-nowrap">{UI_TEXT.appTitle}</h1>
 				<p class="text-xs text-surface-600-300-token hidden sm:block">
 					{UI_TEXT.appSubtitle}
 				</p>
