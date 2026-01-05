@@ -10,6 +10,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  PUBLIC_SENTRY_DSN: ${{ vars.PUBLIC_SENTRY_DSN }}
+  PUBLIC_SENTRY_ENVIRONMENT: ${{ vars.PUBLIC_SENTRY_ENVIRONMENT }}
+
 jobs:
   lint:
     name: Lint
