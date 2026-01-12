@@ -137,7 +137,7 @@ describe('addressStatusStore', () => {
 			expect(entry?.loading).toBe(false);
 		});
 
-		it('skips fetch if cache is fresh (not stale)', async () => {
+		it('always fetches fresh data (no client-side caching)', async () => {
 			const mockResponse = {
 				city: 'м. Одеса',
 				street: 'вул. Педагогічна',
@@ -148,71 +148,22 @@ describe('addressStatusStore', () => {
 				fetchedAt: Date.now(),
 			};
 
-			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(ok(mockResponse));
+			vi.mocked(apiClient.fetchBuildingStatuses)
+				.mockResolvedValueOnce(ok(mockResponse))
+				.mockResolvedValueOnce(ok(mockResponse));
 
 			// First fetch
 			await addressStatusStore.fetchStatus(mockAddress1);
 
 			expect(apiClient.fetchBuildingStatuses).toHaveBeenCalledTimes(1);
 
-			// Second fetch - should use cache
-			await addressStatusStore.fetchStatus(mockAddress1);
-
-			// Should still be called only once
-			expect(apiClient.fetchBuildingStatuses).toHaveBeenCalledTimes(1);
-		});
-
-		it('refetches if cache is stale (> 5 minutes)', async () => {
-			vi.useFakeTimers();
-
-			const mockResponse1 = {
-				city: 'м. Одеса',
-				street: 'вул. Педагогічна',
-				buildings: {
-					'25/39': {},
-				},
-				schedules: {},
-				fetchedAt: Date.now(),
-			};
-
-			const mockResponse2 = {
-				...mockResponse1,
-				buildings: {
-					'25/39': {
-						outage: {
-							type: 'emergency' as const,
-							from: '14:30 17.12.2025',
-							to: '23:00 17.12.2025',
-						},
-					},
-				},
-				fetchedAt: Date.now() + 6 * 60 * 1000,
-			};
-
-			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(ok(mockResponse1));
-
-			// First fetch
-			await addressStatusStore.fetchStatus(mockAddress1);
-
-			expect(apiClient.fetchBuildingStatuses).toHaveBeenCalledTimes(1);
-
-			// Advance time by 6 minutes (past 5-minute TTL)
-			vi.advanceTimersByTime(6 * 60 * 1000);
-
-			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(ok(mockResponse2));
-
-			// Second fetch - cache should be stale, so refetch
+			// Second fetch - should also fetch (no caching)
 			await addressStatusStore.fetchStatus(mockAddress1);
 
 			expect(apiClient.fetchBuildingStatuses).toHaveBeenCalledTimes(2);
-
-			const entry = addressStatusStore.getStatus('addr-1');
-			expect(entry?.status?.outage).toBeDefined();
-
-			vi.useRealTimers();
 		});
 
-		it('refetches if previous fetch had error', async () => {
+		it('retries after previous fetch had error', async () => {
 			// First fetch - error
 			vi.mocked(apiClient.fetchBuildingStatuses).mockResolvedValueOnce(
 				err(apiError('NETWORK_ERROR', 'Network error'))

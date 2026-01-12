@@ -6,7 +6,7 @@
  *
  * Features:
  * - getCities/getStreets/getSchedules: Read-only from KV cache
- * - getStatus: HTTP to DTEK using CSRF/cookies from KV, with 10min local cache
+ * - getStatus: HTTP to DTEK using CSRF/cookies from KV, with 2min local cache
  * - Result-based error handling with rich context
  */
 
@@ -30,7 +30,7 @@ import type { DtekCachedRegion } from '$lib/types/dtek-cache';
 export class DtekService {
 	private readonly regionCode: RegionCode;
 	private readonly statusCache: TtlCache<DtekStatusResponse>;
-	private readonly STATUS_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+	private readonly STATUS_CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
 
 	// Cache processed schedules in memory (no need to re-process on every call)
 	private schedulesCache: ProcessedSchedules | null = null;

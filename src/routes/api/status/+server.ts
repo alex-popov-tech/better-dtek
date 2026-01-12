@@ -62,11 +62,18 @@ export const GET: RequestHandler = async ({ url }) => {
 	const schedules = schedulesResult.ok ? schedulesResult.value : {};
 
 	// Return all buildings with transformed status and schedules
-	return json({
-		city,
-		street,
-		buildings,
-		schedules,
-		fetchedAt,
-	});
+	return json(
+		{
+			city,
+			street,
+			buildings,
+			schedules,
+			fetchedAt,
+		},
+		{
+			headers: {
+				'Cache-Control': 'private, no-store, must-revalidate',
+			},
+		}
+	);
 };

@@ -44,18 +44,6 @@ export interface StatusCacheEntry {
 }
 
 /**
- * Cache TTL in milliseconds (5 minutes)
- */
-const CACHE_TTL_MS = 5 * 60 * 1000;
-
-/**
- * Check if a cache entry is stale
- */
-function isStale(entry: StatusCacheEntry): boolean {
-	return Date.now() - entry.fetchedAt > CACHE_TTL_MS;
-}
-
-/**
  * Schedule cache store - shared across all addresses
  */
 const scheduleCacheStore = writable<ScheduleCache | null>(null);
@@ -68,18 +56,13 @@ function createAddressStatusStore() {
 
 	/**
 	 * Fetch status for a single address
-	 * @param forceRefresh - If true, bypass cache and fetch fresh data
 	 */
-	async function fetchStatus(address: SavedAddress, forceRefresh = false): Promise<void> {
+	async function fetchStatus(address: SavedAddress): Promise<void> {
 		const { id, region, city, street, building } = address;
 
-		// Check cache first (skip if forceRefresh)
+		// Get current entry for preserving status during loading
 		const currentCache = get({ subscribe });
 		const cachedEntry = currentCache.get(id);
-		if (!forceRefresh && cachedEntry && !isStale(cachedEntry) && !cachedEntry.error) {
-			// Cache hit and not stale - skip fetch
-			return;
-		}
 
 		// Set loading state
 		update((cache) => {
@@ -142,19 +125,16 @@ function createAddressStatusStore() {
 
 	/**
 	 * Fetch statuses for multiple addresses in parallel
-	 * @param forceRefresh - If true, bypass cache and fetch fresh data
 	 */
-	async function fetchAllStatuses(addresses: SavedAddress[], forceRefresh = false): Promise<void> {
-		const promises = addresses.map((address) => fetchStatus(address, forceRefresh));
+	async function fetchAllStatuses(addresses: SavedAddress[]): Promise<void> {
+		const promises = addresses.map((address) => fetchStatus(address));
 		await Promise.allSettled(promises);
 	}
 
 	/**
-	 * Force refresh all address statuses (bypasses cache)
+	 * Refresh all address statuses (alias for fetchAllStatuses)
 	 */
-	async function refreshAllStatuses(addresses: SavedAddress[]): Promise<void> {
-		await fetchAllStatuses(addresses, true);
-	}
+	const refreshAllStatuses = fetchAllStatuses;
 
 	/**
 	 * Invalidate cache for a specific address (forces re-fetch on next access)
