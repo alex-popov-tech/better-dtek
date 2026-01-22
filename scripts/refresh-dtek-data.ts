@@ -60,16 +60,28 @@ const DisconScheduleSchema = z.object({
 // Helpers
 // -----------------------------------------------------------------------------
 
+const RETRY_DELAYS = [5_000, 10_000, 30_000, 60_000]; // 5s, 10s, 30s, 60s (then stays at 60s)
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
+	let lastError: unknown;
 	for (let i = 1; i <= attempts; i++) {
 		try {
 			return await fn();
 		} catch (error) {
-			if (i === attempts) throw error;
-			console.log(`  Attempt ${i}/${attempts} failed: ${error}, retrying...`);
+			lastError = error;
+			if (i === attempts) {
+				console.log(`  Attempt ${i}/${attempts} failed: ${error}`);
+				throw error;
+			}
+			const delay = RETRY_DELAYS[Math.min(i - 1, RETRY_DELAYS.length - 1)];
+			console.log(`  Attempt ${i}/${attempts} failed: ${error}`);
+			console.log(`  Waiting ${delay / 1000}s before retry...`);
+			await sleep(delay);
 		}
 	}
-	throw new Error('unreachable');
+	throw lastError ?? new Error('unreachable');
 }
 
 /** Extract balanced JSON from text starting after marker */
@@ -383,7 +395,7 @@ async function main(): Promise<void> {
 	try {
 		for (const region of regionsToProcess) {
 			console.log(`${region.toUpperCase()}...`);
-			const data = await withRetry(() => extractRegion(context, region), 3);
+			const data = await withRetry(() => extractRegion(context, region), 10);
 			await redis.set(dtekDataKey(region), JSON.stringify(data), 'EX', DTEK_CACHE_TTL);
 			extractedData[region] = data;
 			console.log(`  OK: ${data.cities.length} cities, updated ${data.updateFact}`);
