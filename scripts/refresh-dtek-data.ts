@@ -61,6 +61,7 @@ const DisconScheduleSchema = z.object({
 // -----------------------------------------------------------------------------
 
 const RETRY_DELAYS = [5_000, 10_000, 30_000, 60_000]; // 5s, 10s, 30s, 60s (then stays at 60s)
+const PAGE_TIMEOUT = 10_000; // 10s timeout for page navigation and route.fetch
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -290,14 +291,26 @@ async function extractRegion(
 
 	// Intercept response to capture raw HTML before JS modifies/removes script tags
 	let rawHtml: string | null = null;
+	let routeError: Error | null = null;
+
 	await page.route('**/ua/shutdowns', async (route) => {
-		const response = await route.fetch();
-		rawHtml = await response.text();
-		await route.fulfill({ response, body: rawHtml });
+		try {
+			const response = await route.fetch({ timeout: PAGE_TIMEOUT });
+			rawHtml = await response.text();
+			await route.fulfill({ response, body: rawHtml });
+		} catch (error) {
+			routeError = error instanceof Error ? error : new Error(String(error));
+			await route.abort('failed');
+		}
 	});
 
 	try {
-		await page.goto(url, { waitUntil: 'networkidle', timeout: 10_000 });
+		await page.goto(url, { waitUntil: 'networkidle', timeout: PAGE_TIMEOUT });
+
+		// Re-throw route handler error so retry mechanism can catch it
+		if (routeError) {
+			throw routeError;
+		}
 
 		// Clean up route handler
 		await page.unroute('**/ua/shutdowns');
