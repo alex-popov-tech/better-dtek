@@ -80,6 +80,9 @@ export interface ScheduleData {
 	/** Day of week for tomorrow: "1" = Monday, "7" = Sunday */
 	tomorrowDayOfWeek: string;
 
+	/** Whether tomorrow's schedule came from real-time fact data or static preset */
+	tomorrowSource: 'fact' | 'preset';
+
 	/** Schedule groups: groupId → { today, tomorrow } with compressed ranges */
 	groups: Record<
 		string,

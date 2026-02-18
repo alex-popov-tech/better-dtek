@@ -12,12 +12,15 @@
 		todayExpanded?: boolean;
 		/** Whether tomorrow's section is expanded (bindable, default false) */
 		tomorrowExpanded?: boolean;
+		/** Whether tomorrow's schedule came from real-time fact data or static preset */
+		tomorrowSource?: 'fact' | 'preset';
 	}
 
 	let {
 		groupSchedule,
 		todayExpanded = $bindable(true),
 		tomorrowExpanded = $bindable(false),
+		tomorrowSource = 'preset',
 	}: Props = $props();
 
 	const today = $derived(getUkrainianDayOfWeek());
@@ -25,6 +28,18 @@
 
 	const todayRanges = $derived(groupSchedule[today] || []);
 	const tomorrowRanges = $derived(groupSchedule[tomorrow] || []);
+
+	const tomorrowBadge = $derived(
+		tomorrowSource === 'fact'
+			? {
+					text: 'Оновлений',
+					class: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300',
+				}
+			: {
+					text: 'Звичайний',
+					class: 'bg-surface-200 text-surface-500 dark:bg-surface-700 dark:text-surface-400',
+				}
+	);
 </script>
 
 <div class="schedule-display space-y-2">
@@ -37,6 +52,7 @@
 	{#if tomorrowRanges.length > 0}
 		<CollapsibleSection
 			title="Завтра ({DAY_NAMES_SHORT[tomorrow]})"
+			badge={tomorrowBadge}
 			bind:expanded={tomorrowExpanded}
 		>
 			<ScheduleList ranges={tomorrowRanges} />

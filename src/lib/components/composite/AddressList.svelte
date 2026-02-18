@@ -18,6 +18,7 @@
 	let { addresses, statuses, scheduleCache, onadd, onedit, ondelete }: Props = $props();
 
 	const schedules = $derived(scheduleCache?.schedules ?? null);
+	const tomorrowSources = $derived(scheduleCache?.tomorrowSources ?? null);
 
 	const isEmpty = $derived(addresses.length === 0);
 
@@ -162,6 +163,7 @@
 					error={statusEntry?.error}
 					fetchedAt={statusEntry?.fetchedAt}
 					{schedules}
+					{tomorrowSources}
 					onedit={() => onedit(address.id)}
 					ondelete={() => ondelete(address.id)}
 				/>

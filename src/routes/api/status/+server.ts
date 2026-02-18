@@ -59,7 +59,8 @@ export const GET: RequestHandler = async ({ url }) => {
 
 	// Fetch schedules for referenced groups
 	const schedulesResult = await service.getSchedules([...groupIds]);
-	const schedules = schedulesResult.ok ? schedulesResult.value : {};
+	const schedules = schedulesResult.ok ? schedulesResult.value.schedules : {};
+	const tomorrowSource = schedulesResult.ok ? schedulesResult.value.tomorrowSource : undefined;
 
 	// Return all buildings with transformed status and schedules
 	return json(
@@ -68,6 +69,7 @@ export const GET: RequestHandler = async ({ url }) => {
 			street,
 			buildings,
 			schedules,
+			tomorrowSource,
 			fetchedAt,
 		},
 		{

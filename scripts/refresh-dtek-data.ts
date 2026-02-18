@@ -293,6 +293,7 @@ function resolveSchedules(
 	return {
 		todayDayOfWeek: todayDow,
 		tomorrowDayOfWeek: tomorrowDow,
+		tomorrowSource: factTomorrowData ? 'fact' : 'preset',
 		groups,
 	};
 }

@@ -10,7 +10,13 @@
  * - Result-based error handling with rich context
  */
 
-import type { DtekStatusResponse, Result, DtekError, ProcessedSchedules } from '$lib/types';
+import type {
+	DtekStatusResponse,
+	Result,
+	DtekError,
+	ProcessedSchedules,
+	ScheduleResult,
+} from '$lib/types';
 import { ok, formatErrorForLog } from '$lib/types';
 import { fetchBuildingStatuses, CookieJar } from './client';
 import { TtlCache } from './cache';
@@ -34,6 +40,7 @@ export class DtekService {
 
 	// Cache processed schedules in memory (no need to re-process on every call)
 	private schedulesCache: ProcessedSchedules | null = null;
+	private schedulesCacheTomorrowSource: 'fact' | 'preset' = 'preset';
 	private schedulesCacheExtractedAt: string | null = null;
 
 	constructor(region: RegionCode) {
@@ -152,7 +159,7 @@ export class DtekService {
 	 * @returns Result with filtered schedules for the specified groups
 	 *          Days are keyed by day-of-week ("1"=Monday, "7"=Sunday)
 	 */
-	async getSchedules(groupIds: string[]): Promise<Result<ProcessedSchedules, DtekError>> {
+	async getSchedules(groupIds: string[]): Promise<Result<ScheduleResult, DtekError>> {
 		const regionResult = await this.getRegionData();
 		if (!regionResult.ok) return regionResult;
 
@@ -161,7 +168,7 @@ export class DtekService {
 
 		// No schedule data available
 		if (!scheduleData) {
-			return ok({});
+			return ok({ schedules: {}, tomorrowSource: 'preset' });
 		}
 
 		// Transform pre-compressed data to ProcessedSchedules format (cache on extractedAt change)
@@ -177,6 +184,7 @@ export class DtekService {
 			}
 
 			this.schedulesCache = processed;
+			this.schedulesCacheTomorrowSource = scheduleData.tomorrowSource ?? 'preset';
 			this.schedulesCacheExtractedAt = regionData.extractedAt;
 		}
 
@@ -188,7 +196,7 @@ export class DtekService {
 			}
 		}
 
-		return ok(filtered);
+		return ok({ schedules: filtered, tomorrowSource: this.schedulesCacheTomorrowSource });
 	}
 }
 

@@ -30,6 +30,15 @@ export interface DtekRawPreset {
 export type ProcessedSchedules = Record<string, Record<string, ScheduleRange[]>>;
 
 /**
+ * Schedule result from service: schedules + metadata about tomorrow's source
+ */
+export interface ScheduleResult {
+	schedules: ProcessedSchedules;
+	/** Whether tomorrow's schedule came from real-time fact data or static preset */
+	tomorrowSource: 'fact' | 'preset';
+}
+
+/**
  * Raw DTEK API response for getHomeNum - status for a single building
  */
 export interface DtekBuildingStatus {
