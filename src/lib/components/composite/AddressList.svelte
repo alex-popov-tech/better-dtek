@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { SavedAddress } from '$lib/types/address';
 	import type { StatusCacheEntry, ScheduleCache } from '$lib/stores/address-status';
+	import { onMount } from 'svelte';
 	import { addressStatusStore } from '$lib/stores/address-status';
 	import { UI_TEXT } from '$lib/constants/ui-text';
 	import AddressCard from './AddressCard.svelte';
@@ -23,6 +24,26 @@
 	const isRefreshing = $derived(
 		addresses.length > 0 && Array.from(statuses.values()).some((entry) => entry.loading)
 	);
+
+	// Detect whether content overflows the scroll container
+	let isScrollable = $state(false);
+
+	onMount(() => {
+		const scrollEl = document.getElementById('page');
+		if (!scrollEl) return;
+
+		const observer = new ResizeObserver(() => {
+			isScrollable = scrollEl.scrollHeight > scrollEl.clientHeight;
+		});
+
+		// Observe both the scroll container (viewport changes) and its content
+		observer.observe(scrollEl);
+		if (scrollEl.firstElementChild) {
+			observer.observe(scrollEl.firstElementChild);
+		}
+
+		return () => observer.disconnect();
+	});
 
 	async function handleRefresh() {
 		await addressStatusStore.refreshAllStatuses(addresses);
@@ -146,6 +167,36 @@
 				/>
 			{/each}
 		</div>
+
+		<!-- Bottom refresh button — only when content is scrollable -->
+		{#if isScrollable}
+			<div class="pt-2 pb-20">
+				<button
+					type="button"
+					class="btn variant-soft-surface w-full py-3 flex items-center justify-center gap-2"
+					onclick={handleRefresh}
+					disabled={isRefreshing}
+					aria-label={UI_TEXT.refresh}
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke-width="1.5"
+						stroke="currentColor"
+						class="w-5 h-5"
+						class:animate-spin={isRefreshing}
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
+						/>
+					</svg>
+					<span>{UI_TEXT.refresh}</span>
+				</button>
+			</div>
+		{/if}
 	{/if}
 
 	<!-- Mobile FAB - sized to match Sentry feedback button (48x48px) -->

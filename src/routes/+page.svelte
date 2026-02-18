@@ -6,6 +6,7 @@
 	import { citiesStore } from '$lib/stores/cities';
 	import AddressList from '$lib/components/composite/AddressList.svelte';
 	import AddressForm from '$lib/components/composite/AddressForm.svelte';
+	import PullToRefresh from '$lib/components/composite/PullToRefresh.svelte';
 
 	let { data }: { data: PageData } = $props();
 
@@ -19,6 +20,17 @@
 	const addresses = $derived($addressesStore);
 	const statuses = $derived($addressStatusStore);
 	const scheduleCache = $derived($scheduleCacheStore);
+
+	// Pull-to-refresh state
+	const isRefreshing = $derived(
+		addresses.length > 0 && Array.from(statuses.values()).some((entry) => entry.loading)
+	);
+
+	async function handlePullRefresh() {
+		if (addresses.length > 0) {
+			await addressStatusStore.refreshAllStatuses(addresses);
+		}
+	}
 
 	// Auto-fetch statuses when addresses change
 	$effect(() => {
@@ -94,14 +106,16 @@
 	}
 </script>
 
-<AddressList
-	{addresses}
-	{statuses}
-	{scheduleCache}
-	onadd={handleAdd}
-	onedit={handleEdit}
-	ondelete={handleDelete}
-/>
+<PullToRefresh onRefresh={handlePullRefresh} {isRefreshing}>
+	<AddressList
+		{addresses}
+		{statuses}
+		{scheduleCache}
+		onadd={handleAdd}
+		onedit={handleEdit}
+		ondelete={handleDelete}
+	/>
+</PullToRefresh>
 
 {#if showModal}
 	<div

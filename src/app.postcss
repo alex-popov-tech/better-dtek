@@ -8,6 +8,12 @@ body {
 	@apply h-full overflow-hidden;
 }
 
+/* Prevent native browser pull-to-refresh on the scroll container
+   so our custom PullToRefresh component has full control */
+#page {
+	overscroll-behavior-y: none;
+}
+
 /* ============================================
    Form Field State Overrides
    ============================================ */

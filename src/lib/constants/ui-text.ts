@@ -20,6 +20,7 @@ export const UI_TEXT = {
 	addFirstAddress: 'Додайте першу адресу',
 	emptyStateValueProp: 'Відстежуйте планові та аварійні відключення',
 	refresh: 'Оновити',
+	refreshing: 'Оновлення...',
 
 	// Address form
 	addAddress: 'Додати адресу',
