@@ -114,6 +114,16 @@
 		return `${fromStr} — ${toStr}`;
 	});
 
+	// Format emergency outage as two-line display with full "HH:MM DD.MM.YYYY" dates
+	const emergencyOutageLines = $derived.by(() => {
+		if (!status?.outage || status.outage.type !== 'emergency') return null;
+		const parse = (s: string) => {
+			const m = s.match(/^(\d{2}:\d{2})\s+(\d{2}\.\d{2}\.\d{4})/);
+			return m ? `${m[1]} ${m[2]}` : s;
+		};
+		return { from: parse(status.outage.from), to: parse(status.outage.to) };
+	});
+
 	// Status text color class - using darker shades for WCAG 4.5:1 contrast
 	const statusColorClass = $derived.by(() => {
 		switch (trafficLightStatus) {
@@ -161,12 +171,22 @@
 								{TRAFFIC_LIGHT_LABELS[trafficLightStatus]}
 							</div>
 							{#if status?.outage}
-								<!-- Active outage from API - show time range -->
-								<div class="text-xs text-surface-600-300-token">
-									{#if outageTimeRange}{outageTimeRange}{:else}Відключення{/if}
-									{#if queueDisplay}
-										({queueDisplay}){/if}
-								</div>
+								{#if emergencyOutageLines}
+									<!-- Emergency outage - two-line detailed format -->
+									<div class="text-xs text-surface-600-300-token">
+										{UI_TEXT.outageStartTime} – {emergencyOutageLines.from}
+									</div>
+									<div class="text-xs text-surface-600-300-token">
+										{UI_TEXT.outageEstimatedRestore} – до {emergencyOutageLines.to}
+									</div>
+								{:else}
+									<!-- Non-emergency outage - compact time range -->
+									<div class="text-xs text-surface-600-300-token">
+										{#if outageTimeRange}{outageTimeRange}{:else}Відключення{/if}
+										{#if queueDisplay}
+											({queueDisplay}){/if}
+									</div>
+								{/if}
 							{:else if currentRangeInfo}
 								<!-- Schedule-based status - show schedule info -->
 								<div class="text-xs text-surface-600-300-token">
