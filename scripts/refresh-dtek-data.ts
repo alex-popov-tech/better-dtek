@@ -209,7 +209,7 @@ function compressDaySchedule(dayData: HourlySchedule): ScheduleRange[] {
 /**
  * Resolve schedules from fact.data (real-time) and preset.data (static).
  * For today: use fact.data if available, else preset.data
- * For tomorrow: always use preset.data
+ * For tomorrow: use fact.data if a second (larger) timestamp key exists, else preset.data
  * Returns pre-compressed ranges ready for storage.
  */
 function resolveSchedules(
@@ -231,6 +231,7 @@ function resolveSchedules(
 
 	// Parse fact.data structure: timestamp → groupId → hour → status
 	// fact.data can be [] (empty) or { timestamp: { groupId: { hour: status } } }
+	// When two timestamps exist, the larger one (not matching factToday) is tomorrow's data
 	const fact = factData as
 		| Record<string, Record<string, Record<string, ScheduleStatus>>>
 		| unknown[]
@@ -240,13 +241,32 @@ function resolveSchedules(
 			? (fact[String(factToday)] as Record<string, Record<string, ScheduleStatus>> | undefined)
 			: undefined;
 
-	// Collect all group IDs from both sources
+	// Look for a tomorrow key in fact.data: the largest numeric key greater than factToday
+	let factTomorrowData: Record<string, Record<string, ScheduleStatus>> | undefined;
+	if (fact && !Array.isArray(fact) && factToday) {
+		const tomorrowKey = Object.keys(fact)
+			.map(Number)
+			.filter((k) => !isNaN(k) && k > factToday)
+			.sort((a, b) => b - a)[0];
+		if (tomorrowKey !== undefined) {
+			factTomorrowData = fact[String(tomorrowKey)] as
+				| Record<string, Record<string, ScheduleStatus>>
+				| undefined;
+		}
+	}
+
+	// Collect all group IDs from all sources
 	const groupIds = new Set<string>();
 	for (const groupId of Object.keys(preset)) {
 		groupIds.add(groupId);
 	}
 	if (factTodayData) {
 		for (const groupId of Object.keys(factTodayData)) {
+			groupIds.add(groupId);
+		}
+	}
+	if (factTomorrowData) {
+		for (const groupId of Object.keys(factTomorrowData)) {
 			groupIds.add(groupId);
 		}
 	}
@@ -259,8 +279,9 @@ function resolveSchedules(
 		const todayHourly: HourlySchedule =
 			factTodayData?.[groupId] ?? preset[groupId]?.[todayDow] ?? {};
 
-		// Tomorrow: always from preset
-		const tomorrowHourly: HourlySchedule = preset[groupId]?.[tomorrowDow] ?? {};
+		// Tomorrow: prefer fact (if a second timestamp exists), fallback to preset
+		const tomorrowHourly: HourlySchedule =
+			factTomorrowData?.[groupId] ?? preset[groupId]?.[tomorrowDow] ?? {};
 
 		// Compress hourly data to ranges
 		groups[groupId] = {
