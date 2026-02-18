@@ -8,19 +8,23 @@
 	interface Props {
 		/** Schedule data for a group (day -> ranges) */
 		groupSchedule: Record<string, ScheduleRange[]>;
+		/** Whether today's section is expanded (bindable, default true) */
+		todayExpanded?: boolean;
+		/** Whether tomorrow's section is expanded (bindable, default false) */
+		tomorrowExpanded?: boolean;
 	}
 
-	let { groupSchedule }: Props = $props();
+	let {
+		groupSchedule,
+		todayExpanded = $bindable(true),
+		tomorrowExpanded = $bindable(false),
+	}: Props = $props();
 
 	const today = $derived(getUkrainianDayOfWeek());
 	const tomorrow = $derived(getTomorrowDayOfWeek());
 
 	const todayRanges = $derived(groupSchedule[today] || []);
 	const tomorrowRanges = $derived(groupSchedule[tomorrow] || []);
-
-	// Today expanded by default, tomorrow collapsed
-	let todayExpanded = $state(true);
-	let tomorrowExpanded = $state(false);
 </script>
 
 <div class="schedule-display space-y-2">

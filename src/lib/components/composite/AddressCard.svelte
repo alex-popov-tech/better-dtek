@@ -10,6 +10,7 @@
 		getCurrentRangeInfo,
 		type TrafficLightStatus,
 	} from '$lib/utils/schedule';
+	import { getScheduleExpandState, setScheduleExpandState } from '$lib/stores/addresses';
 	import TrafficLight from '../atomic/TrafficLight.svelte';
 	import ScheduleDisplay from '../atomic/ScheduleDisplay.svelte';
 
@@ -70,6 +71,15 @@
 	const currentRangeInfo = $derived(
 		todayRanges.length > 0 ? getCurrentRangeInfo(todayRanges) : null
 	);
+
+	// Schedule expand/collapse state — persisted to localStorage
+	const expandState = getScheduleExpandState(address.id);
+	let todayExpanded = $state(expandState.todayExpanded);
+	let tomorrowExpanded = $state(expandState.tomorrowExpanded);
+
+	$effect(() => {
+		setScheduleExpandState(address.id, { todayExpanded, tomorrowExpanded });
+	});
 
 	// Format queue number for display (GPV5.2 -> Черга 5.2)
 	const queueDisplay = $derived(groupId ? `Черга ${groupId.replace(/^GPV/, '')}` : null);
@@ -211,7 +221,7 @@
 			<!-- Schedule -->
 			{#if groupSchedule && !error}
 				<div>
-					<ScheduleDisplay {groupSchedule} />
+					<ScheduleDisplay {groupSchedule} bind:todayExpanded bind:tomorrowExpanded />
 				</div>
 			{/if}
 		</div>

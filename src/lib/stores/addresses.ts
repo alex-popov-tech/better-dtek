@@ -5,7 +5,7 @@ import { loadFromStorage, saveToStorage } from '$lib/utils/storage';
 
 const STORAGE_KEY = 'dtek-addresses';
 const INTERACTED_KEY = 'dtek-has-interacted';
-const SCHEMA_VERSION = 2; // Version 2 adds region field
+const SCHEMA_VERSION = 3; // Version 3 adds uiState for schedule expand/collapse
 
 /**
  * Sample address shown to first-time users
@@ -19,43 +19,87 @@ const SAMPLE_ADDRESS: Omit<SavedAddress, 'id' | 'createdAt'> = {
 };
 
 /**
- * Versioned storage format
+ * Per-address schedule section expand/collapse state
+ */
+export interface ScheduleExpandState {
+	todayExpanded: boolean;
+	tomorrowExpanded: boolean;
+}
+
+const DEFAULT_EXPAND_STATE: ScheduleExpandState = {
+	todayExpanded: true,
+	tomorrowExpanded: false,
+};
+
+/**
+ * Versioned storage envelope — single source of truth for all address-related data
  */
 interface StoredData {
 	version: number;
 	data: SavedAddress[];
+	uiState: Record<string, ScheduleExpandState>;
 }
 
+const DEFAULT_ENVELOPE: StoredData = {
+	version: SCHEMA_VERSION,
+	data: [],
+	uiState: {},
+};
+
 /**
- * Load addresses from localStorage with schema validation
- * Clears data if schema version doesn't match
+ * Load the full envelope from localStorage with schema migration
+ *
+ * Migration chain:
+ *   v1 (raw array, no version) → wipe (no region field, can't salvage)
+ *   v2 { version: 2, data }    → v3: add uiState: {}
+ *   v3 { version: 3, data, uiState } → current, use as-is
+ *   v4+ (future unknown)       → wipe with warning
  */
-function loadAddresses(): SavedAddress[] {
-	return loadFromStorage<SavedAddress[]>(STORAGE_KEY, [], (parsed) => {
-		// Check if it's the new versioned format
-		if (typeof parsed === 'object' && parsed !== null && 'version' in parsed) {
-			const stored = parsed as StoredData;
-			if (stored.version !== SCHEMA_VERSION) {
-				console.warn(
-					`[AddressStore] Schema version mismatch: expected ${SCHEMA_VERSION}, got ${stored.version}. Clearing data.`
-				);
-				return null; // Return null to use default (empty array)
-			}
-			return Array.isArray(stored.data) ? stored.data : null;
+function loadEnvelope(): StoredData {
+	return loadFromStorage<StoredData>(STORAGE_KEY, DEFAULT_ENVELOPE, (parsed) => {
+		if (typeof parsed !== 'object' || parsed === null || !('version' in parsed)) {
+			console.warn('[AddressStore] Old schema format detected (missing version), clearing data.');
+			return null;
 		}
-		// Old format (array directly) - version 1 without region, clear it
-		console.warn('[AddressStore] Old schema format detected (missing version), clearing data.');
+
+		const stored = parsed as { version: number; data?: unknown; uiState?: unknown };
+
+		if (!Array.isArray(stored.data)) {
+			console.warn('[AddressStore] Invalid data format, clearing.');
+			return null;
+		}
+
+		// Migrate v2 → v3: add empty uiState
+		if (stored.version === 2) {
+			return { version: SCHEMA_VERSION, data: stored.data, uiState: {} };
+		}
+
+		// Current version
+		if (stored.version === SCHEMA_VERSION) {
+			const uiState =
+				typeof stored.uiState === 'object' && stored.uiState !== null
+					? (stored.uiState as Record<string, ScheduleExpandState>)
+					: {};
+			return { version: SCHEMA_VERSION, data: stored.data, uiState };
+		}
+
+		// Unknown future version
+		console.warn(`[AddressStore] Schema version ${stored.version} not supported, clearing data.`);
 		return null;
 	});
 }
 
 /**
- * Save addresses to localStorage with version
+ * Save the full envelope to localStorage
  */
-function saveAddresses(addresses: SavedAddress[]): void {
-	const data: StoredData = { version: SCHEMA_VERSION, data: addresses };
-	saveToStorage(STORAGE_KEY, data);
+function saveEnvelope(envelope: StoredData): void {
+	saveToStorage(STORAGE_KEY, envelope);
 }
+
+// Module-level state: loaded once, mutated in place, saved as a whole
+let currentEnvelope: StoredData = loadEnvelope();
+// Eagerly persist migration (no-op on SSR via isBrowser guard in saveToStorage)
+saveEnvelope(currentEnvelope);
 
 /**
  * Check if user has ever added an address
@@ -85,10 +129,38 @@ function generateId(): string {
 }
 
 /**
+ * Get persisted schedule expand/collapse state for an address
+ */
+export function getScheduleExpandState(addressId: string): ScheduleExpandState {
+	return currentEnvelope.uiState[addressId] ?? { ...DEFAULT_EXPAND_STATE };
+}
+
+/**
+ * Persist schedule expand/collapse state for an address
+ * Includes dirty check — skips save if state is unchanged
+ */
+export function setScheduleExpandState(addressId: string, state: ScheduleExpandState): void {
+	const current = currentEnvelope.uiState[addressId];
+	if (
+		current &&
+		current.todayExpanded === state.todayExpanded &&
+		current.tomorrowExpanded === state.tomorrowExpanded
+	) {
+		return; // No change, skip save
+	}
+
+	currentEnvelope = {
+		...currentEnvelope,
+		uiState: { ...currentEnvelope.uiState, [addressId]: state },
+	};
+	saveEnvelope(currentEnvelope);
+}
+
+/**
  * Create the addresses store
  */
 function createAddressesStore() {
-	const { subscribe, update } = writable<SavedAddress[]>(loadAddresses());
+	const { subscribe, update } = writable<SavedAddress[]>(currentEnvelope.data);
 
 	return {
 		subscribe,
@@ -105,7 +177,8 @@ function createAddressesStore() {
 					createdAt: Date.now(),
 				};
 				const updated = [...addresses, newAddress];
-				saveAddresses(updated);
+				currentEnvelope = { ...currentEnvelope, data: updated };
+				saveEnvelope(currentEnvelope);
 				return updated;
 			});
 		},
@@ -116,7 +189,8 @@ function createAddressesStore() {
 		update: (id: string, address: Omit<SavedAddress, 'id' | 'createdAt'>): void => {
 			update((addresses) => {
 				const updated = addresses.map((a) => (a.id === id ? { ...a, ...address } : a));
-				saveAddresses(updated);
+				currentEnvelope = { ...currentEnvelope, data: updated };
+				saveEnvelope(currentEnvelope);
 				return updated;
 			});
 		},
@@ -127,15 +201,19 @@ function createAddressesStore() {
 		remove: (id: string): void => {
 			update((addresses) => {
 				const updated = addresses.filter((a) => a.id !== id);
-				saveAddresses(updated);
+				const remainingUIState = { ...currentEnvelope.uiState };
+				delete remainingUIState[id];
+				currentEnvelope = { ...currentEnvelope, data: updated, uiState: remainingUIState };
+				saveEnvelope(currentEnvelope);
 				return updated;
 			});
 		},
 
 		/**
-		 * Clear all addresses (for testing)
+		 * Clear all addresses and UI state (for testing)
 		 */
 		_reset: (): void => {
+			currentEnvelope = { version: SCHEMA_VERSION, data: [], uiState: {} };
 			update(() => []);
 		},
 	};
@@ -150,8 +228,7 @@ export const addressesStore = createAddressesStore();
 export function initializeForFirstTimeUser(): void {
 	if (hasUserInteracted()) return;
 
-	const addresses = loadAddresses();
-	if (addresses.length === 0) {
+	if (currentEnvelope.data.length === 0) {
 		// First time user - inject sample address
 		addressesStore.add(SAMPLE_ADDRESS);
 	}
