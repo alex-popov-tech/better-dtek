@@ -45,7 +45,7 @@ export const UI_TEXT = {
 	noOutage: 'Відключень немає',
 	emergencyOutage: 'Аварійне відключення',
 	outageStartTime: 'Час початку',
-	outageEstimatedRestore: 'Орієнтовний час відновлення електроенергії',
+	outageEstimatedRestore: 'Час відновлення',
 	lastUpdated: 'Оновлено',
 
 	// Loading/Error
