@@ -11,7 +11,12 @@
 		<title>Відключення світла - ДТЕК</title>
 		<script>
 			(function () {
-				var theme = localStorage.getItem('dtek-theme');
+				try {
+					var raw = localStorage.getItem('dtek-theme');
+					var theme = raw ? JSON.parse(raw) : null;
+				} catch (e) {
+					var theme = null;
+				}
 				var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 				var isDark = theme === 'dark' || (!theme && prefersDark);
 				if (isDark) document.documentElement.classList.add('dark');
