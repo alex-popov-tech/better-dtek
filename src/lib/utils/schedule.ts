@@ -1,4 +1,4 @@
-import type { ScheduleRange } from '$lib/types/dtek';
+import type { ScheduleRange, ScheduleStatus } from '$lib/types/dtek';
 
 /**
  * Get current day of week in Ukraine (1=Monday, 7=Sunday)
@@ -48,6 +48,16 @@ export function formatTimeFloat(time: number): string {
 	const hours = Math.floor(time);
 	const minutes = Math.round((time - hours) * 60);
 	return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Get simplified status category for coloring.
+ * Maps 7 statuses to 3 visual categories: yes (green), maybe (amber), no (red).
+ */
+export function getStatusCategory(status: ScheduleStatus): 'yes' | 'maybe' | 'no' {
+	if (status === 'yes') return 'yes';
+	if (status === 'maybe' || status === 'mfirst' || status === 'msecond') return 'maybe';
+	return 'no';
 }
 
 /**

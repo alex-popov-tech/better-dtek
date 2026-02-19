@@ -1,22 +1,13 @@
 <script lang="ts">
-	import type { ScheduleRange, ScheduleStatus } from '$lib/types/dtek';
+	import type { ScheduleRange } from '$lib/types/dtek';
 	import { SCHEDULE_STATUS_LABELS } from '$lib/constants/ui-text';
-	import { formatTimeFloat } from '$lib/utils/schedule';
+	import { formatTimeFloat, getStatusCategory } from '$lib/utils/schedule';
 
 	interface Props {
 		ranges: ScheduleRange[];
 	}
 
 	let { ranges }: Props = $props();
-
-	/**
-	 * Get simplified status category for coloring
-	 */
-	function getStatusCategory(status: ScheduleStatus): 'yes' | 'maybe' | 'no' {
-		if (status === 'yes') return 'yes';
-		if (status === 'maybe' || status === 'mfirst' || status === 'msecond') return 'maybe';
-		return 'no';
-	}
 </script>
 
 <div class="schedule-list space-y-1 py-1">

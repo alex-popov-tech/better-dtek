@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { ScheduleRange } from '$lib/types/dtek';
 	import CollapsibleSection from './CollapsibleSection.svelte';
+	import ScheduleTimeline from './ScheduleTimeline.svelte';
 	import ScheduleList from './ScheduleList.svelte';
 	import { getUkrainianDayOfWeek, getTomorrowDayOfWeek } from '$lib/utils/schedule';
 	import { DAY_NAMES_SHORT } from '$lib/constants/ui-text';
@@ -42,6 +43,7 @@
 <div class="schedule-display space-y-2">
 	{#if todayRanges.length > 0}
 		<CollapsibleSection title="Сьогодні ({DAY_NAMES_SHORT[today]})" bind:expanded={todayExpanded}>
+			<ScheduleTimeline ranges={todayRanges} showNow={true} />
 			<ScheduleList ranges={todayRanges} />
 		</CollapsibleSection>
 	{/if}
@@ -52,6 +54,7 @@
 			badge={tomorrowBadge}
 			bind:expanded={tomorrowExpanded}
 		>
+			<ScheduleTimeline ranges={tomorrowRanges} />
 			<ScheduleList ranges={tomorrowRanges} />
 		</CollapsibleSection>
 	{/if}
