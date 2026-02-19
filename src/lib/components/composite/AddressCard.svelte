@@ -22,8 +22,8 @@
 		fetchedAt?: number;
 		/** Schedule data by group ID */
 		schedules?: Record<string, Record<string, ScheduleRange[]>> | null;
-		/** Whether tomorrow's schedule came from fact or preset, keyed by region */
-		tomorrowSources?: Record<string, 'fact' | 'preset'> | null;
+		/** Whether tomorrow's schedule has real outage data, keyed by region */
+		tomorrowUpdated?: Record<string, boolean> | null;
 		onedit: () => void;
 		ondelete: () => void;
 	}
@@ -35,7 +35,7 @@
 		error = null,
 		fetchedAt,
 		schedules = null,
-		tomorrowSources = null,
+		tomorrowUpdated = null,
 		onedit,
 		ondelete,
 	}: Props = $props();
@@ -49,7 +49,7 @@
 	const groupId = $derived(status?.group);
 	const scheduleKey = $derived(groupId ? `${address.region}:${groupId}` : null);
 	const groupSchedule = $derived(scheduleKey && schedules ? schedules[scheduleKey] : null);
-	const tomorrowSource = $derived(tomorrowSources?.[address.region] ?? 'preset');
+	const isTomorrowUpdated = $derived(tomorrowUpdated?.[address.region] ?? false);
 
 	// Get today's ranges for traffic light calculation
 	const today = $derived(getUkrainianDayOfWeek());
@@ -227,7 +227,7 @@
 				<div>
 					<ScheduleDisplay
 						{groupSchedule}
-						{tomorrowSource}
+						{isTomorrowUpdated}
 						bind:todayExpanded
 						bind:tomorrowExpanded
 					/>

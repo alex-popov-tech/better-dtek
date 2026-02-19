@@ -159,6 +159,13 @@ function normalizeStatus(status: ScheduleStatus): NormalizedStatus {
 	return 'no';
 }
 
+/** Check if all statuses across all groups are 'yes' (no real outage data) */
+function isAllYesSchedule(data: Record<string, Record<string, ScheduleStatus>>): boolean {
+	return Object.values(data).every((group) =>
+		Object.values(group).every((status) => status === 'yes')
+	);
+}
+
 function addRange(
 	ranges: ScheduleRange[],
 	from: number,
@@ -293,7 +300,7 @@ function resolveSchedules(
 	return {
 		todayDayOfWeek: todayDow,
 		tomorrowDayOfWeek: tomorrowDow,
-		tomorrowSource: factTomorrowData ? 'fact' : 'preset',
+		tomorrowUpdated: !!factTomorrowData && !isAllYesSchedule(factTomorrowData),
 		groups,
 	};
 }

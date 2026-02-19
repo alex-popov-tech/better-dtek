@@ -25,8 +25,8 @@ function prefixSchedulesWithRegion(
 export interface ScheduleCache {
 	/** Schedules by group ID, then by day (1-7) */
 	schedules: Record<string, Record<string, ScheduleRange[]>>;
-	/** Whether tomorrow's schedule came from fact or preset, keyed by region */
-	tomorrowSources: Record<string, 'fact' | 'preset'>;
+	/** Whether tomorrow's schedule has real outage data, keyed by region */
+	tomorrowUpdated: Record<string, boolean>;
 	/** Unix timestamp when schedules were last updated */
 	fetchedAt: number;
 }
@@ -108,9 +108,9 @@ function createAddressStatusStore() {
 			const prefixedSchedules = prefixSchedulesWithRegion(response.schedules, region);
 			scheduleCacheStore.update((cache) => ({
 				schedules: { ...cache?.schedules, ...prefixedSchedules },
-				tomorrowSources: {
-					...cache?.tomorrowSources,
-					...(response.tomorrowSource ? { [region]: response.tomorrowSource } : {}),
+				tomorrowUpdated: {
+					...cache?.tomorrowUpdated,
+					...(response.tomorrowUpdated != null ? { [region]: response.tomorrowUpdated } : {}),
 				},
 				fetchedAt: response.fetchedAt,
 			}));

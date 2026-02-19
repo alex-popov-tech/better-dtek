@@ -12,15 +12,15 @@
 		todayExpanded?: boolean;
 		/** Whether tomorrow's section is expanded (bindable, default false) */
 		tomorrowExpanded?: boolean;
-		/** Whether tomorrow's schedule came from real-time fact data or static preset */
-		tomorrowSource?: 'fact' | 'preset';
+		/** Whether tomorrow's schedule has real outage data (controls 'Оновлений' badge) */
+		isTomorrowUpdated?: boolean;
 	}
 
 	let {
 		groupSchedule,
 		todayExpanded = $bindable(true),
 		tomorrowExpanded = $bindable(false),
-		tomorrowSource = 'preset',
+		isTomorrowUpdated = false,
 	}: Props = $props();
 
 	const today = $derived(getUkrainianDayOfWeek());
@@ -30,15 +30,12 @@
 	const tomorrowRanges = $derived(groupSchedule[tomorrow] || []);
 
 	const tomorrowBadge = $derived(
-		tomorrowSource === 'fact'
+		isTomorrowUpdated
 			? {
 					text: 'Оновлений',
 					class: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300',
 				}
-			: {
-					text: 'Звичайний',
-					class: 'bg-surface-200 text-surface-500 dark:bg-surface-700 dark:text-surface-400',
-				}
+			: undefined
 	);
 </script>
 

@@ -40,7 +40,7 @@ export class DtekService {
 
 	// Cache processed schedules in memory (no need to re-process on every call)
 	private schedulesCache: ProcessedSchedules | null = null;
-	private schedulesCacheTomorrowSource: 'fact' | 'preset' = 'preset';
+	private schedulesCacheTomorrowUpdated = false;
 	private schedulesCacheExtractedAt: string | null = null;
 
 	constructor(region: RegionCode) {
@@ -168,7 +168,7 @@ export class DtekService {
 
 		// No schedule data available
 		if (!scheduleData) {
-			return ok({ schedules: {}, tomorrowSource: 'preset' });
+			return ok({ schedules: {}, tomorrowUpdated: false });
 		}
 
 		// Transform pre-compressed data to ProcessedSchedules format (cache on extractedAt change)
@@ -184,7 +184,7 @@ export class DtekService {
 			}
 
 			this.schedulesCache = processed;
-			this.schedulesCacheTomorrowSource = scheduleData.tomorrowSource ?? 'preset';
+			this.schedulesCacheTomorrowUpdated = scheduleData.tomorrowUpdated ?? false;
 			this.schedulesCacheExtractedAt = regionData.extractedAt;
 		}
 
@@ -196,7 +196,7 @@ export class DtekService {
 			}
 		}
 
-		return ok({ schedules: filtered, tomorrowSource: this.schedulesCacheTomorrowSource });
+		return ok({ schedules: filtered, tomorrowUpdated: this.schedulesCacheTomorrowUpdated });
 	}
 }
 

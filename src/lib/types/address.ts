@@ -72,8 +72,8 @@ export interface StatusResponse {
 	street: string;
 	buildings: Record<string, BuildingStatus>;
 	schedules: Record<string, Record<string, ScheduleRange[]>>;
-	/** Whether tomorrow's schedule came from real-time fact data or static preset */
-	tomorrowSource?: 'fact' | 'preset';
+	/** Whether tomorrow's schedule has real outage data (not just all-yes placeholder) */
+	tomorrowUpdated?: boolean;
 	fetchedAt: number;
 }
 
