@@ -11,8 +11,33 @@
 	let { ranges, showNow = false }: Props = $props();
 
 	const HOUR_TICKS = [0, 6, 12, 18, 24];
+	const UPDATE_INTERVAL_MS = 30 * 60 * 1000;
 
-	const nowPosition = $derived(showNow ? (getCurrentTimeAsFloat() / 24) * 100 : null);
+	let nowTime = $state(getCurrentTimeAsFloat());
+
+	$effect(() => {
+		if (!showNow) return;
+
+		const update = () => {
+			nowTime = getCurrentTimeAsFloat();
+		};
+
+		const intervalId = setInterval(update, UPDATE_INTERVAL_MS);
+
+		// PWA / backgrounded tab: timers are throttled, so recalculate
+		// immediately when the app becomes visible again.
+		const onVisibilityChange = () => {
+			if (!document.hidden) update();
+		};
+		document.addEventListener('visibilitychange', onVisibilityChange);
+
+		return () => {
+			clearInterval(intervalId);
+			document.removeEventListener('visibilitychange', onVisibilityChange);
+		};
+	});
+
+	const nowPosition = $derived(showNow ? (nowTime / 24) * 100 : null);
 
 	/**
 	 * Build a CSS linear-gradient with soft transitions between segments.
