@@ -46,6 +46,8 @@ jobs:
         run: npx playwright install chromium
 
       - name: Refresh DTEK data
+        id: refresh
+        continue-on-error: true
         run: |
           if [ -n "${{ github.event.inputs.region }}" ]; then
             npx tsx scripts/refresh-dtek-data.ts --region=${{ github.event.inputs.region }}
@@ -64,11 +66,27 @@ jobs:
           retention-days: 1
           if-no-files-found: ignore
 
+      - name: Check consecutive failures
+        if: steps.refresh.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "::warning::DTEK data refresh failed (checking if consecutive)"
+          # Get conclusions of last 2 completed runs (excluding current)
+          PREV=$(gh run list --workflow=refresh-dtek-data.yml --status=completed --limit=2 --json conclusion --jq '.[].conclusion')
+          PREV_FAILURES=$(echo "$PREV" | grep -c "failure" || true)
+          echo "Previous 2 runs had $PREV_FAILURES failure(s)"
+          if [ "$PREV_FAILURES" -ge 2 ]; then
+            echo "::error::DTEK data refresh failed 3 times in a row!"
+            exit 1
+          fi
+          echo "Isolated failure — suppressing notification"
+
       - name: Report status
         if: always()
         run: |
-          if [ "${{ job.status }}" == "success" ]; then
+          if [ "${{ steps.refresh.outcome }}" == "success" ]; then
             echo "::notice::DTEK data refresh completed successfully"
           else
-            echo "::error::DTEK data refresh failed"
+            echo "::warning::DTEK data refresh failed (isolated failure, no alert)"
           fi
