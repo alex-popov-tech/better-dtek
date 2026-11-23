@@ -6,6 +6,8 @@ export const DASHBOARD_ID_LENGTH = 10;
 export const DASHBOARD_NAME_MAX = 60;
 /** Max length of an address label inside a dashboard */
 export const DASHBOARD_LABEL_MAX = 60;
+/** Max length of city, street and building in a dashboard address */
+export const DASHBOARD_FIELD_MAX = 200;
 /** Max number of addresses in one dashboard */
 export const DASHBOARD_MAX_ADDRESSES = 20;
 

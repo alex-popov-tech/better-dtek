@@ -46,6 +46,15 @@ describe('dashboardAddressSchema', () => {
 		expect(dashboardAddressSchema.parse({ ...base, label: ' Сашко ' }).label).toBe('Сашко');
 	});
 
+	it.each(['city', 'street', 'building'])('rejects a %s longer than 200 characters', (field) => {
+		expect(dashboardAddressSchema.safeParse({ ...base, [field]: 'x'.repeat(201) }).success).toBe(
+			false
+		);
+		expect(dashboardAddressSchema.safeParse({ ...base, [field]: 'x'.repeat(200) }).success).toBe(
+			true
+		);
+	});
+
 	it('rejects an unknown region', () => {
 		expect(dashboardAddressSchema.safeParse({ ...base, region: 'zzz' }).success).toBe(false);
 	});

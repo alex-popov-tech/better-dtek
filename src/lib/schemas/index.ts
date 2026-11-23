@@ -10,7 +10,12 @@
 
 import { z } from 'zod';
 import { REGION_CODES } from '$lib/constants/regions';
-import { DASHBOARD_ID_LENGTH, DASHBOARD_NAME_MAX, DASHBOARD_LABEL_MAX } from '$lib/types/dashboard';
+import {
+	DASHBOARD_ID_LENGTH,
+	DASHBOARD_NAME_MAX,
+	DASHBOARD_LABEL_MAX,
+	DASHBOARD_FIELD_MAX,
+} from '$lib/types/dashboard';
 
 // =============================================================================
 // Region Schema
@@ -132,11 +137,20 @@ export const dashboardNameBodySchema = z.object({
 	name: dashboardNameSchema,
 });
 
+const dashboardFieldSchema = z
+	.string()
+	.min(1, "Поле обов'язкове")
+	.max(DASHBOARD_FIELD_MAX, 'Значення задовге');
+
 /**
- * Address stored in a dashboard: the form schema plus a label length cap.
+ * Address stored in a dashboard: the form schema plus length caps, so the
+ * address cap really bounds how much one dashboard can store.
  * An empty label is stored as no label.
  */
 export const dashboardAddressSchema = addressFormSchema.extend({
+	city: dashboardFieldSchema,
+	street: dashboardFieldSchema,
+	building: dashboardFieldSchema,
 	label: z
 		.string()
 		.trim()

@@ -94,6 +94,25 @@ describe('dashboard API client', () => {
 		expect(fetchMock.mock.calls[0][1].method).toBe('DELETE');
 	});
 
+	it('shows the server validation message for a 400', async () => {
+		fetchMock.mockResolvedValue(
+			jsonResponse({ error: 'VALIDATION_ERROR', message: 'Мітка має містити до 60 символів' }, 400)
+		);
+
+		const result = await addDashboardAddress(ID, { ...input, label: 'x'.repeat(61) });
+
+		expect(!result.ok && result.error.message).toBe('Мітка має містити до 60 символів');
+	});
+
+	it('falls back to a generic message when a 400 has no readable body', async () => {
+		fetchMock.mockResolvedValue(new Response('oops', { status: 400 }));
+
+		const result = await addDashboardAddress(ID, input);
+
+		expect(!result.ok && result.error.code).toBe('VALIDATION_ERROR');
+		expect(!result.ok && result.error.message).toBe('Невірні параметри');
+	});
+
 	it('maps a thrown fetch to NETWORK_ERROR', async () => {
 		fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
 

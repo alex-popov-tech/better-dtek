@@ -15,15 +15,26 @@ import { UI_TEXT } from '$lib/constants/ui-text';
 
 const BASE = '/api/dashboards';
 
+/** Read the server's validation message, if the error body has one */
+async function readServerMessage(response: Response): Promise<string | undefined> {
+	try {
+		const body = (await response.json()) as { message?: unknown };
+		return typeof body.message === 'string' && body.message ? body.message : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 /** Map an HTTP error status to a client error */
-function errorFromStatus(status: number): ApiError {
+function errorFromStatus(status: number, serverMessage?: string): ApiError {
 	const byStatus: Record<number, [ApiErrorCode, string]> = {
 		400: ['VALIDATION_ERROR', UI_TEXT.invalidParams],
 		404: ['NOT_FOUND', UI_TEXT.dashboardNotFound],
 		409: ['LIMIT_REACHED', UI_TEXT.dashboardLimitReached],
 	};
 	const [code, message] = byStatus[status] ?? ['SERVER_ERROR', UI_TEXT.dashboardStorageError];
-	return apiError(code, message, status);
+	// Validation messages name the field that is wrong; the generic text does not
+	return apiError(code, (status === 400 && serverMessage) || message, status);
 }
 
 /**
@@ -44,7 +55,8 @@ async function request<T>(
 
 		if (!response.ok) {
 			console.error(`[Dashboard API] ${method} ${path} failed: HTTP`, response.status);
-			return err(errorFromStatus(response.status));
+			const serverMessage = response.status === 400 ? await readServerMessage(response) : undefined;
+			return err(errorFromStatus(response.status, serverMessage));
 		}
 
 		if (response.status === 204) return ok(undefined as T);

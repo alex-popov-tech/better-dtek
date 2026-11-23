@@ -49,6 +49,7 @@
 	let copiedTimer: ReturnType<typeof setTimeout> | undefined;
 
 	let reloading = $state(false);
+	let saving = false;
 	const isRefreshing = $derived(
 		reloading ||
 			(addresses.length > 0 && addresses.some((a) => statuses.get(a.id)?.loading ?? false))
@@ -78,10 +79,9 @@
 			return;
 		}
 
+		// The reload replaces the address list, so the effect above re-fetches the
+		// statuses; fetching here as well would double every /api/status call.
 		dashboardsStore.remember({ id: $store.id, name: $store.name });
-		if ($store.addresses.length > 0) {
-			await addressStatusStore.refreshAllStatuses($store.addresses);
-		}
 	}
 
 	// Modal helpers
@@ -121,8 +121,14 @@
 	}
 
 	async function handleSave(input: AddressInput) {
+		// The form is submittable again while the API call is in flight;
+		// ignore a second tap so it cannot add the address twice
+		if (saving) return;
+
 		const editing = editingAddress;
+		saving = true;
 		const result = editing ? await store.update(editing.id, input) : await store.add(input);
+		saving = false;
 
 		if (!result.ok) {
 			// Keep the modal open so the input is not lost
