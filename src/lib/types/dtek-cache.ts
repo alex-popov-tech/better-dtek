@@ -9,6 +9,11 @@
  *   dtek:data:{region}  - Per-region cached data (TTL: 24h, refreshed every 20min)
  *   dtek:meta           - Last refresh metadata
  *
+ * The same database also holds public dashboards (no TTL), see
+ * src/lib/server/dashboards/keys.ts:
+ *   dashboard:{id}      - Dashboard hash (production)
+ *   dashboard-dev:{id}  - Dashboard hash (local dev and previews)
+ *
  * Regions: kem | krem | oem | dnem | dem
  */
 

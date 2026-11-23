@@ -51,13 +51,21 @@ This is a SvelteKit application for tracking DTEK (Ukrainian power company) powe
 
 ### Server-Side DTEK Integration (`src/lib/server/dtek/`)
 
-- **DtekService** - Facade reading from Vercel KV (data refreshed by GitHub Action every 20min)
+- **DtekService** - Facade reading from Redis (Upstash; data refreshed by GitHub Action every 20min)
 - **client.ts** - HTTP client with cookie jar for real-time building status
 - **cache.ts** - Simple TTL cache for status responses
 
+### Public Dashboards (`src/lib/server/dashboards/`)
+
+Named, server-stored address lists with a short permanent URL (`/<id>`). Anyone with the link can edit; there are no accounts and dashboards cannot be deleted.
+
+- **repository.ts** - One Redis hash per dashboard (`meta` field + one `addr:<uuid>` field per address), no TTL
+- **keys.ts** - Id generation and key prefix: `dashboard:` on Vercel production, `dashboard-dev:` everywhere else (local dev shares the production database)
+- **http.ts** - Shared response helpers for the API routes
+
 ### Data Pipeline (`scripts/`, `.github/workflows/`)
 
-- **refresh-dtek-data.ts** - Playwright script extracts DTEK data, stores in Vercel KV
+- **refresh-dtek-data.ts** - Playwright script extracts DTEK data, stores in Redis
 - **refresh-dtek-data.yml** - GitHub Action runs extraction every 20 minutes
 
 ### Client-Side Stores (`src/lib/stores/`)
@@ -66,12 +74,14 @@ This is a SvelteKit application for tracking DTEK (Ukrainian power company) powe
 - **addressStatusStore** - Building status cache (5min TTL) with loading states
 - **scheduleCacheStore** - Global schedule data by group ID
 - **citiesStore** - Available cities
+- **dashboardsStore** - Dashboards this device has opened, persisted to localStorage
+- **createDashboardStore** - One open dashboard; same add/update/remove as addressesStore but via the API
 - **theme** - Dark/light mode
 
 ### Component Pattern (`src/lib/components/`)
 
 - **atomic/** - Reusable UI components (Select, TrafficLight, ScheduleList)
-- **composite/** - Feature components (AddressList, AddressCard, AddressForm)
+- **composite/** - Feature components (AddressList, AddressCard, AddressForm, AddressModal, DashboardView, DashboardsMenu)
 - **layout/** - AppShell, ThemeToggle
 
 ### API Routes (`src/routes/api/`)
@@ -79,6 +89,14 @@ This is a SvelteKit application for tracking DTEK (Ukrainian power company) powe
 - `GET /api/cities` - List all cities
 - `GET /api/streets?city=` - Streets for a city
 - `GET /api/status?city=&street=` - Building statuses with schedules
+- `POST /api/dashboards` - Create a dashboard
+- `GET|PATCH /api/dashboards/[id]` - Read / rename
+- `POST /api/dashboards/[id]/addresses`, `PUT|DELETE /api/dashboards/[id]/addresses/[addressId]` - Edit addresses
+
+### Pages
+
+- `/` - Personal address list (localStorage) plus the dashboards menu
+- `/[id=dashboardId]` - Public dashboard; the param matcher only accepts 10-char `[a-z0-9]` ids
 
 ## Key Patterns
 
@@ -94,7 +112,7 @@ All UI text is in Ukrainian. Constants are in `src/lib/constants/ui-text.ts`.
 
 - SvelteKit + Svelte 5
 - Tailwind CSS + Skeleton Labs UI
-- Vercel KV (Redis) for cached DTEK data
+- Upstash Redis (via `REDIS_URL`, ioredis) for cached DTEK data and dashboards; eviction must stay off
 - Playwright (data extraction in GitHub Actions)
 - Vitest
 - Deployed to Vercel (Frankfurt region)

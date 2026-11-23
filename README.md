@@ -42,6 +42,12 @@ Power outages in Ukraine are unpredictable. This app helps you:
 
 ---
 
+## Shared Dashboards
+
+Tired of entering the same addresses on every device? Create a dashboard, give it a name, and share its link. Everyone who opens the link sees the same addresses and can add, edit or remove them. Dashboards you have opened are listed on the home page of that device.
+
+There are no accounts: the link is the only key, so share it only with people you trust to edit the list.
+
 ## Screenshots
 
 <div align="center">
