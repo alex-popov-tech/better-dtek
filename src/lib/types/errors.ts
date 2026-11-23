@@ -216,7 +216,9 @@ export type ApiErrorCode =
 	| 'NETWORK_ERROR'
 	| 'VALIDATION_ERROR'
 	| 'SERVER_ERROR'
-	| 'REGION_UNAVAILABLE';
+	| 'REGION_UNAVAILABLE'
+	| 'NOT_FOUND'
+	| 'LIMIT_REACHED';
 
 /**
  * Simplified error type for client-side API calls
