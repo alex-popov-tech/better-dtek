@@ -10,6 +10,7 @@
 
 import { z } from 'zod';
 import { REGION_CODES } from '$lib/constants/regions';
+import { DASHBOARD_ID_LENGTH, DASHBOARD_NAME_MAX, DASHBOARD_LABEL_MAX } from '$lib/types/dashboard';
 
 // =============================================================================
 // Region Schema
@@ -103,3 +104,45 @@ export const addressFormSchema = z.object({
 });
 
 export type AddressFormData = z.infer<typeof addressFormSchema>;
+
+// =============================================================================
+// Dashboard Schemas
+// =============================================================================
+
+/**
+ * Dashboard id: 10 lowercase letters or digits
+ */
+export const dashboardIdSchema = z
+	.string()
+	.regex(new RegExp(`^[a-z0-9]{${DASHBOARD_ID_LENGTH}}$`), 'Некоректний ідентифікатор дашборду');
+
+/**
+ * Dashboard name: 1-60 characters after trimming
+ */
+export const dashboardNameSchema = z
+	.string()
+	.trim()
+	.min(1, 'Назва має містити від 1 до 60 символів')
+	.max(DASHBOARD_NAME_MAX, 'Назва має містити від 1 до 60 символів');
+
+/**
+ * Request body for creating or renaming a dashboard
+ */
+export const dashboardNameBodySchema = z.object({
+	name: dashboardNameSchema,
+});
+
+/**
+ * Address stored in a dashboard: the form schema plus a label length cap.
+ * An empty label is stored as no label.
+ */
+export const dashboardAddressSchema = addressFormSchema.extend({
+	label: z
+		.string()
+		.trim()
+		.max(DASHBOARD_LABEL_MAX, 'Мітка має містити до 60 символів')
+		.optional()
+		.transform((label) => (label ? label : undefined)),
+});
+
+export type DashboardAddressData = z.infer<typeof dashboardAddressSchema>;
