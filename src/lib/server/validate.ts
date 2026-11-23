@@ -70,3 +70,54 @@ export function validateQuery<T extends z.ZodType>(
 
 	return ok(result.data);
 }
+
+/**
+ * Validate a JSON request body against a Zod schema
+ *
+ * A body that is not valid JSON is reported the same way as a body that
+ * fails the schema: 400 VALIDATION_ERROR.
+ *
+ * @param request - The incoming request
+ * @param schema - Zod schema to validate against
+ * @returns Result with typed data on success, or ApiValidationError on failure
+ */
+export async function validateBody<T extends z.ZodType>(
+	request: Request,
+	schema: T
+): Promise<Result<z.infer<T>, ApiValidationError>> {
+	let body: unknown;
+	try {
+		body = await request.json();
+	} catch {
+		return err({
+			response: json(
+				{ error: 'VALIDATION_ERROR', message: 'Некоректне тіло запиту', errors: [] },
+				{ status: 400, headers: { 'Cache-Control': 'no-store' } }
+			),
+		});
+	}
+
+	const result = schema.safeParse(body);
+
+	if (!result.success) {
+		const firstError = result.error.issues[0];
+		const message = firstError?.message ?? 'Невірні параметри запиту';
+
+		const fieldErrors = result.error.issues.map((issue) => ({
+			field: issue.path.join('.'),
+			code: issue.code.toUpperCase(),
+			message: issue.message,
+		}));
+
+		console.error('[API Validation] Body validation failed:', result.error.flatten());
+
+		return err({
+			response: json(
+				{ error: 'VALIDATION_ERROR', message, errors: fieldErrors },
+				{ status: 400, headers: { 'Cache-Control': 'no-store' } }
+			),
+		});
+	}
+
+	return ok(result.data);
+}
