@@ -23,6 +23,10 @@ export const UI_TEXT = {
 	dashboardEmpty: 'У цьому дашборді ще немає адрес',
 	goHome: 'На головну',
 	dashboardName: 'Назва дашборду',
+	myDashboards: 'Мої дашборди',
+	createDashboard: 'Створити дашборд',
+	dashboardNamePlaceholder: 'Наприклад, Геймери',
+	create: 'Створити',
 
 	// Theme
 	lightMode: 'Світла тема',

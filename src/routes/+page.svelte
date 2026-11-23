@@ -7,6 +7,7 @@
 	import AddressList from '$lib/components/composite/AddressList.svelte';
 	import AddressModal from '$lib/components/composite/AddressModal.svelte';
 	import PullToRefresh from '$lib/components/composite/PullToRefresh.svelte';
+	import DashboardsMenu from '$lib/components/composite/DashboardsMenu.svelte';
 
 	let { data }: { data: PageData } = $props();
 
@@ -92,6 +93,7 @@
 </script>
 
 <PullToRefresh onRefresh={handlePullRefresh} {isRefreshing}>
+	<DashboardsMenu />
 	<AddressList
 		{addresses}
 		{statuses}
