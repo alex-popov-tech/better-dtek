@@ -20,7 +20,7 @@ let redis: Redis | null = null;
 /**
  * Get or create the Redis client instance
  */
-function getRedis(): Redis {
+export function getRedis(): Redis {
 	if (redis) return redis;
 
 	const { REDIS_URL } = getRedisEnv();

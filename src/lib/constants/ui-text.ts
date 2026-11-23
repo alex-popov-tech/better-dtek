@@ -9,6 +9,12 @@ export const UI_TEXT = {
 	appTitle: 'Відключення світла',
 	appSubtitle: 'ДТЕК Електромережі',
 
+	// Dashboards
+	dashboardNotFound: 'Дашборд не знайдено',
+	dashboardLimitReached: 'У дашборді вже максимум адрес (20)',
+	dashboardStorageError: 'Не вдалося зберегти зміни. Спробуйте пізніше.',
+	dashboardNameInvalid: 'Назва має містити від 1 до 60 символів',
+
 	// Theme
 	lightMode: 'Світла тема',
 	darkMode: 'Темна тема',
