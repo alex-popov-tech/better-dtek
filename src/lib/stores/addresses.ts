@@ -157,6 +157,19 @@ export function setScheduleExpandState(addressId: string, state: ScheduleExpandS
 }
 
 /**
+ * Drop persisted schedule expand/collapse state for an address
+ * (used for addresses that do not live in the local addresses store)
+ */
+export function clearScheduleExpandState(addressId: string): void {
+	if (!(addressId in currentEnvelope.uiState)) return;
+
+	const remainingUIState = { ...currentEnvelope.uiState };
+	delete remainingUIState[addressId];
+	currentEnvelope = { ...currentEnvelope, uiState: remainingUIState };
+	saveEnvelope(currentEnvelope);
+}
+
+/**
  * Create the addresses store
  */
 function createAddressesStore() {

@@ -13,9 +13,25 @@
 		onadd: () => void;
 		onedit: (id: string) => void;
 		ondelete: (id: string) => void;
+		/** Heading above the list (defaults to the saved-addresses title) */
+		title?: string;
+		/** Heading of the empty state */
+		emptyTitle?: string;
+		/** Custom refresh; defaults to re-fetching the statuses of the shown addresses */
+		onrefresh?: () => Promise<void>;
 	}
 
-	let { addresses, statuses, scheduleCache, onadd, onedit, ondelete }: Props = $props();
+	let {
+		addresses,
+		statuses,
+		scheduleCache,
+		onadd,
+		onedit,
+		ondelete,
+		title = UI_TEXT.savedAddresses,
+		emptyTitle = UI_TEXT.noSavedAddresses,
+		onrefresh,
+	}: Props = $props();
 
 	const schedules = $derived(scheduleCache?.schedules ?? null);
 	const tomorrowUpdated = $derived(scheduleCache?.tomorrowUpdated ?? null);
@@ -47,6 +63,10 @@
 	});
 
 	async function handleRefresh() {
+		if (onrefresh) {
+			await onrefresh();
+			return;
+		}
 		await addressStatusStore.refreshAllStatuses(addresses);
 	}
 </script>
@@ -54,7 +74,7 @@
 <div class="space-y-6">
 	<!-- Header -->
 	<div class="flex items-center justify-between">
-		<h2 class="h2 font-bold">{UI_TEXT.savedAddresses}</h2>
+		<h2 class="h2 font-bold break-words min-w-0">{title}</h2>
 
 		{#if !isEmpty}
 			<div class="flex items-center gap-2">
@@ -127,7 +147,7 @@
 			</div>
 
 			<div class="space-y-2">
-				<h3 class="h3">{UI_TEXT.noSavedAddresses}</h3>
+				<h3 class="h3">{emptyTitle}</h3>
 				<p class="text-surface-600-300-token">{UI_TEXT.addFirstAddress}</p>
 				<p class="text-surface-500-400-token text-sm">{UI_TEXT.emptyStateValueProp}</p>
 			</div>

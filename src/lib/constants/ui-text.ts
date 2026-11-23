@@ -14,6 +14,15 @@ export const UI_TEXT = {
 	dashboardLimitReached: 'У дашборді вже максимум адрес (20)',
 	dashboardStorageError: 'Не вдалося зберегти зміни. Спробуйте пізніше.',
 	dashboardNameInvalid: 'Назва має містити від 1 до 60 символів',
+	backToMyAddresses: 'Мої адреси',
+	renameDashboard: 'Перейменувати',
+	copyLink: 'Копіювати посилання',
+	linkCopied: 'Посилання скопійовано',
+	copyLinkFailed: 'Не вдалося скопіювати посилання',
+	forgetDashboard: 'Прибрати зі списку',
+	dashboardEmpty: 'У цьому дашборді ще немає адрес',
+	goHome: 'На головну',
+	dashboardName: 'Назва дашборду',
 
 	// Theme
 	lightMode: 'Світла тема',

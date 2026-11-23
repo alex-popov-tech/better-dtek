@@ -5,7 +5,7 @@
 	import { addressStatusStore, scheduleCacheStore } from '$lib/stores/address-status';
 	import { citiesStore } from '$lib/stores/cities';
 	import AddressList from '$lib/components/composite/AddressList.svelte';
-	import AddressForm from '$lib/components/composite/AddressForm.svelte';
+	import AddressModal from '$lib/components/composite/AddressModal.svelte';
 	import PullToRefresh from '$lib/components/composite/PullToRefresh.svelte';
 
 	let { data }: { data: PageData } = $props();
@@ -13,7 +13,6 @@
 	// Modal state
 	let showModal = $state(false);
 	let editingAddress = $state<SavedAddress | undefined>(undefined);
-	let modalElement: HTMLDivElement | undefined = $state(undefined);
 	let triggerElement: HTMLElement | null = null;
 
 	// Subscribe to stores
@@ -39,13 +38,6 @@
 		}
 	});
 
-	// Focus modal when opened
-	$effect(() => {
-		if (showModal && modalElement) {
-			modalElement.focus();
-		}
-	});
-
 	// Modal helpers
 	function closeModal() {
 		showModal = false;
@@ -53,13 +45,6 @@
 		citiesStore.reset();
 		triggerElement?.focus();
 		triggerElement = null;
-	}
-
-	function handleModalKeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape') {
-			event.preventDefault();
-			closeModal();
-		}
 	}
 
 	// Handlers
@@ -118,39 +103,11 @@
 </PullToRefresh>
 
 {#if showModal}
-	<div
-		class="fixed inset-0 z-50 flex items-center justify-center"
-		role="dialog"
-		aria-modal="true"
-		aria-labelledby="modal-title"
-		onkeydown={handleModalKeydown}
-		tabindex="-1"
-	>
-		<!-- Backdrop -->
-		<button
-			type="button"
-			class="absolute inset-0 bg-surface-backdrop-token backdrop-blur-md cursor-pointer border-0"
-			onclick={handleCancel}
-			aria-label="Закрити модальне вікно"
-		></button>
-		<div
-			bind:this={modalElement}
-			class="card p-6 w-full sm:max-w-xl max-h-[80vh] overflow-y-auto relative z-10 shadow-xl ring-1 ring-surface-300-600-token"
-			data-testid="address-modal"
-			tabindex="-1"
-			role="none"
-			onclick={(e) => e.stopPropagation()}
-		>
-			<h2 id="modal-title" class="h2 font-bold mb-4">
-				{editingAddress ? 'Редагувати адресу' : 'Додати адресу'}
-			</h2>
-			<AddressForm
-				data={{ form: data.form }}
-				address={editingAddress}
-				onsave={handleSave}
-				oncancel={handleCancel}
-				ondelete={editingAddress ? () => handleDelete(editingAddress!.id) : undefined}
-			/>
-		</div>
-	</div>
+	<AddressModal
+		form={data.form}
+		address={editingAddress}
+		onsave={handleSave}
+		oncancel={handleCancel}
+		ondelete={editingAddress ? () => handleDelete(editingAddress!.id) : undefined}
+	/>
 {/if}
